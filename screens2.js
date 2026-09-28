@@ -2,18 +2,42 @@
 /* ========== products ========== */
 let PQ='';
 SCR.products=()=>{
-  view(`<div class="card"><div class="row sp"><h3 style="margin:0">পণ্য তালিকা</h3><div class="row"><input id="q" placeholder="খুঁজুন..." style="width:170px" value="${esc(PQ)}"><button class="btn" id="add">+ নতুন পণ্য</button></div></div></div><div class="card" id="pl"></div>`);
+  view(`<div class="card"><div class="row sp"><h3 style="margin:0">পণ্য তালিকা</h3><div class="row"><input id="q" placeholder="নাম / বারকোড..." style="width:170px" value="${esc(PQ)}"><button class="btn" id="add">+ নতুন পণ্য</button></div></div></div><div class="card" id="pl"></div>`);
   $('#add').onclick=()=>productForm(null,()=>SCR.products());$('#q').oninput=e=>{PQ=e.target.value;paint()};
   function paint(){
     const q=PQ.toLowerCase();let tv=0,ts=0;
-    const rows=live('products').filter(p=>!q||p.name.toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name));
+    const rows=live('products').filter(p=>!q||p.name.toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q)||(p.barcode||'').toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name));
     const body=rows.map(p=>{const s=stockOf(p.id),v=Math.max(s,0)*num(p.buyPrice);tv+=v;ts+=s;const low=num(p.low)>0&&s<=num(p.low);
-      return [`${esc(p.name)}${low?' <span class="bd br">লো</span>':''}`,esc(p.category||'-'),money(p.buyPrice),money(p.sellPrice),`${r2(s)} ${esc(p.unit||'')}`,money(v),`<button class="btn o s" data-e="${p.id}">এডিট</button>`]});
-    $('#pl').innerHTML=tblc(['নাম','ক্যাটাগরি','>ক্রয়','>বিক্রয়','>স্টক','>স্টক মূল্য',''],body,['মোট '+rows.length+'টি','','','',r2(ts),money(tv),'']);
+      return [`${esc(p.name)}${low?' <span class="bd br">লো</span>':''}${p.barcode?`<br><small style="color:var(--m)">▮ ${esc(p.barcode)}</small>`:''}`,esc(p.category||'-'),money(p.buyPrice),money(p.sellPrice),num(p.wsPrice)>0?`${money(p.wsPrice)}<br><small style="color:var(--m)">${r2(p.wsMin)}+ ${esc(p.unit||'')}</small>`:'-',`${r2(s)} ${esc(p.unit||'')}`,money(v),`<button class="btn o s" data-e="${p.id}">এডিট</button>`]});
+    $('#pl').innerHTML=tblc(['নাম','ক্যাটাগরি','>ক্রয়','>খুচরা','>পাইকারী','>স্টক','>স্টক মূল্য',''],body,['মোট '+rows.length+'টি','','','','',r2(ts),money(tv),'']);
     $$('[data-e]').forEach(b=>b.onclick=()=>productForm(S.products.get(b.dataset.e),()=>SCR.products()));
   }
   paint();
 };
+
+/* ========== ক্যাটাগরি ও একক ম্যানেজমেন্ট ========== */
+function listPage(kind){
+  const k=LK[kind];
+  const cnt={};live('products').forEach(p=>{const n=(p[k.field]||'').trim();if(n)cnt[n]=(cnt[n]||0)+1});
+  const recs={};live('meta').filter(m=>m.kind===kind).forEach(m=>recs[m.name]=m);
+  const names=listNames(kind);
+  view(`<div class="card"><h3>নতুন ${k.l} যোগ করুন</h3><div class="row" style="flex-wrap:nowrap"><input id="ln" placeholder="${k.l}র নাম লিখুন"><button class="btn" id="la">+ যোগ করুন</button></div></div>
+  <div class="card"><h3>${k.l} তালিকা (${names.length}টি)</h3>${tblc(['নাম','>পণ্য সংখ্যা',''],names.map((n,i)=>[esc(n),cnt[n]||0,`<div class="row" style="flex-wrap:nowrap"><button class="btn o s" data-r="${i}">নাম বদলান</button>${isOwner()?`<button class="btn d s" data-d="${i}">ডিলিট</button>`:''}</div>`]))}</div>`);
+  const add=async()=>{const n=$('#ln').value.trim();if(!n)return toast('নাম দিন','e');
+    if(names.some(x=>x.toLowerCase()===n.toLowerCase()&&recs[x]))return toast('এই নাম আগে থেকেই আছে','e');
+    await addListName(kind,n);toast('যোগ হয়েছে','k');listPage(kind)};
+  $('#la').onclick=add;$('#ln').onkeydown=e=>{if(e.key==='Enter')add()};
+  $$('[data-r]').forEach(b=>b.onclick=async()=>{const old=names[b.dataset.r];const nn=(prompt(k.l+'র নতুন নাম:',old)||'').trim();if(!nn||nn===old)return;
+    if(names.some(x=>x!==old&&x.toLowerCase()===nn.toLowerCase()))return toast('এই নাম আগে থেকেই আছে','e');
+    if(recs[old])await save('meta',{...recs[old],name:nn});else await save('meta',{id:kind+'_'+uid(),kind,name:nn});
+    const ps=live('products').filter(p=>(p[k.field]||'').trim()===old).map(p=>({...p,[k.field]:nn}));if(ps.length)await saveMany('products',ps);
+    toast('নাম বদলেছে','k');listPage(kind)});
+  $$('[data-d]').forEach(b=>b.onclick=async()=>{const n=names[b.dataset.d];
+    if(cnt[n])return toast(`${cnt[n]}টি পণ্যে এই ${k.l} ব্যবহার হচ্ছে — আগে ওই পণ্যগুলো বদলান`,'e');
+    if(!confirm('ডিলিট করবেন?'))return;if(recs[n])await remove('meta',recs[n]);toast('ডিলিট হয়েছে');listPage(kind)});
+}
+SCR.categories=()=>listPage('cat');
+SCR.units=()=>listPage('unit');
 
 /* ========== parties ========== */
 let PT='customer';

@@ -85,7 +85,7 @@ const TYPES={
 };
 function cashEffect(kind,r){ // returns [cash,bank] delta
   const a=num(r.amount??r.paid),m=r.method==='bank'?1:0,v=[0,0];
-  if(r.type){const t=TYPES[r.type];if(!t||!t.money)return v;v[m]=t.cash*num(r.paid);return v}
+  if(r.type){const t=TYPES[r.type];if(!t||!t.money)return v;if(r.payCash!==undefined){v[0]=t.cash*num(r.payCash);v[1]=t.cash*num(r.payBank);return v}v[m]=t.cash*num(r.paid);return v}
   switch(r.kind){
     case 'payment_in':v[m]=a;break;case 'payment_out':v[m]=-a;break;case 'expense':v[m]=-a;break;
     case 'cash_in':v[0]=a;break;case 'cash_out':v[0]=-a;break;case 'bank_in':v[1]=a;break;case 'bank_out':v[1]=-a;break;

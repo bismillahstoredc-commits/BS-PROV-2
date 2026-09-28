@@ -1,11 +1,11 @@
 'use strict';
 /* ========== auth screens ========== */
-function showAuth(html){$('#app').style.display='none';const a=$('#auth');a.style.display='flex';a.innerHTML=`<div class="ac">${html}</div>`}
+function showAuth(html){$('#app').style.display='none';const a=$('#auth');a.style.display='flex';a.innerHTML=`<div class="ac"><div class="brand"><img class="l" src="icons/logo-256.png" alt=""><span class="wm"><img src="icons/wordmark.png" alt="BS PRO"></span></div>${html}</div>`}
 async function mkUser(name,username,pass,role){
   const salt=uid().slice(0,8);return{id:uid(),name,username,role,salt,hash:await sha256(salt+':'+pass),active:1,createdAt:Date.now()};
 }
 function authSetup(){
-  showAuth(`<h2>BS PRO v2</h2><p style="text-align:center;color:var(--m)">শুরু করুন</p>
+  showAuth(`<p style="text-align:center;color:var(--m)">শুরু করুন</p>
   <button class="btn" style="width:100%;margin-bottom:8px" id="a1">নতুন ব্যবসা তৈরি করুন</button>
   <button class="btn o" style="width:100%" id="a2">আগের ডেটা GitHub থেকে ফিরিয়ে আনুন</button>`);
   $('#a1').onclick=authNew;$('#a2').onclick=authRestore;
@@ -40,6 +40,19 @@ function authLogin(){
   $('#go').onclick=go;$('#lp').onkeydown=e=>{if(e.key==='Enter')go()};$('#lp').focus();
 }
 
+/* ========== PWA install (মোবাইল ও কম্পিউটার) ========== */
+let DEFER=null;
+const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+function refreshInstall(){const e=$('#inst');if(e)e.style.display=(!isStandalone()&&(DEFER||isIOS()))?'':'none'}
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();DEFER=e;refreshInstall()});
+addEventListener('appinstalled',()=>{DEFER=null;refreshInstall();toast('অ্যাপ ইনস্টল হয়েছে','k')});
+async function installApp(){
+  closeDrawer();
+  if(DEFER){DEFER.prompt();try{await DEFER.userChoice}catch(e){}DEFER=null;refreshInstall();return}
+  modal('অ্যাপ ইনস্টল করুন',`<p>${isIOS()?'iPhone/iPad-এ <b>Safari</b> ব্রাউজারে: নিচের <b>শেয়ার (⬆)</b> বাটন → <b>Add to Home Screen</b> চাপুন।':'ব্রাউজারের মেনু (⋮) থেকে <b>Install app</b> / <b>Add to Home screen</b> বেছে নিন।'}</p><button class="btn" onclick="closeModal()">ঠিক আছে</button>`);
+}
+
 /* ========== boot ========== */
 async function boot(){
   if(!IDB.db){await IDB.open();await loadAll();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{})}
@@ -48,13 +61,15 @@ async function boot(){
   if(!ME||ME.del||!ME.active){ME=null;return authLogin()}
   $('#auth').style.display='none';$('#app').style.display='flex';
   $('#tbz').textContent=biz().name||'';buildMenu();setStatus();
-  go(CUR.r==='logout'?'dash':CUR.r,CUR.a);
+  const g0=new URLSearchParams(location.search).get('go');
+  if(g0){history.replaceState(null,'',location.pathname);go(g0)}else go(CUR.r==='logout'?'dash':CUR.r,CUR.a);
+  refreshInstall();
   if(syncOn())doSync();
 }
 window.onSynced=()=>{
   ME=S.users.get(ME&&ME.id)||ME;if(ME&&(ME.del||!ME.active)){localStorage.removeItem('bspro_uid');location.reload();return}
   $('#tbz').textContent=biz().name||'';
-  if(!modalOpen()&&['dash','invoices','parties','products','due','expense','cash'].includes(CUR.r))go(CUR.r,CUR.a);
+  if(!modalOpen()&&['dash','invoices','parties','products','categories','units','due','expense','cash'].includes(CUR.r))go(CUR.r,CUR.a);
   toast('নতুন তথ্য সিঙ্ক হয়েছে','k');
 };
 $('#mb').onclick=()=>{$('#drawer').classList.toggle('open');$('#ov').classList.toggle('show')};

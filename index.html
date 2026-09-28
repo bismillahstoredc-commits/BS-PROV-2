@@ -4,10 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#6c2bd9">
-<title>BS PRO v2</title>
+<title>BS PRO — Bismillah Store</title>
 <link rel="manifest" href="manifest.json">
-<link rel="icon" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
+<link rel="shortcut icon" href="icons/favicon.ico">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="BS PRO">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="description" content="BS PRO — Bismillah Store ব্যবসার হিসাব ও ইনভেন্টরি">
 <style>
 :root{--p:#6c2bd9;--pd:#4b1c9c;--pl:#ede4ff;--pll:#f7f3ff;--g:#16a34a;--r:#dc2626;--o:#ea580c;--t:#1f1b2e;--m:#6b6478;--b:#e4dcf5;--bg:#f6f3fb;--rad:12px;--sh:0 2px 10px rgba(76,29,149,.08)}
 *{box-sizing:border-box}html,body{height:100%;margin:0}
@@ -17,6 +24,11 @@ button,input,select,textarea{font:inherit}
 .top{height:54px;background:linear-gradient(135deg,var(--p),var(--pd));color:#fff;display:flex;align-items:center;gap:10px;padding:0 10px;flex-shrink:0;padding-top:env(safe-area-inset-top)}
 .top .mb{background:none;border:0;color:#fff;font-size:24px;padding:6px;cursor:pointer}
 .top .ti{flex:1;min-width:0}.top .ti b{font-size:17px}.top .ti small{display:block;font-size:11px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .lg{width:38px;height:38px;border-radius:50%;background:#fff;flex-shrink:0}
+.wm{display:inline-block;background:#eaf1f8;border-radius:8px;padding:2px 9px;line-height:0}.wm img{height:24px;width:auto;display:block}
+.top .ti{line-height:1.15}
+.dh{display:flex;gap:10px;align-items:center}.dh img{width:52px;height:52px;border-radius:50%;background:#fff;flex-shrink:0}
+.brand{text-align:center;margin-bottom:12px}.brand img.l{width:96px;height:96px;display:block;margin:0 auto 6px}.brand .wm img{height:30px}
 .pill{font-size:12px;background:rgba(255,255,255,.18);border-radius:20px;padding:5px 10px;cursor:pointer;white-space:nowrap}
 .body{flex:1;display:flex;min-height:0}
 .drawer{width:250px;background:#fff;border-right:1px solid var(--b);overflow-y:auto;flex-shrink:0}
@@ -72,7 +84,8 @@ tr.tot td{font-weight:700;border-top:2px solid var(--p)}td.n,th.n{text-align:rig
   <div class="ov" id="ov"></div>
   <div class="top">
     <button class="mb" id="mb">☰</button>
-    <div class="ti"><b>BS PRO <small style="display:inline;font-size:11px">v2</small></b><small id="tbz"></small></div>
+    <img class="lg" src="icons/logo-256.png" alt="">
+    <div class="ti"><span class="wm"><img src="icons/wordmark.png" alt="BS PRO"></span><small id="tbz"></small></div>
     <div class="pill" id="pill">সিঙ্ক বন্ধ</div>
   </div>
   <div class="body">
@@ -82,6 +95,7 @@ tr.tot td{font-weight:700;border-top:2px solid var(--p)}td.n,th.n{text-align:rig
 </div>
 <div id="tw"></div><div id="mw"></div>
 <script src="core.js"></script>
+<script src="scan.js"></script>
 <script src="screens.js"></script>
 <script src="screens2.js"></script>
 <script src="app.js"></script>

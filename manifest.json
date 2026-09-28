@@ -1,1 +1,84 @@
-{"name":"BS PRO v2","short_name":"BS PRO","description":"ব্যবসার হিসাব ও ইনভেন্টরি — অফলাইন ও অনলাইন","start_url":"./index.html","scope":"./","display":"standalone","background_color":"#f6f3fb","theme_color":"#6c2bd9","icons":[{"src":"icons/icon-192.png","sizes":"192x192","type":"image/png"},{"src":"icons/icon-512.png","sizes":"512x512","type":"image/png"}]}
+{
+ "id": "./",
+ "name": "BS PRO — Bismillah Store",
+ "short_name": "BS PRO",
+ "description": "ব্যবসার হিসাব ও ইনভেন্টরি — অফলাইন ও অনলাইন",
+ "lang": "bn",
+ "dir": "ltr",
+ "start_url": "./index.html",
+ "scope": "./",
+ "display": "standalone",
+ "display_override": [
+  "standalone",
+  "minimal-ui"
+ ],
+ "orientation": "any",
+ "background_color": "#ffffff",
+ "theme_color": "#6c2bd9",
+ "categories": [
+  "business",
+  "finance",
+  "productivity"
+ ],
+ "icons": [
+  {
+   "src": "icons/icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icons/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icons/maskable-192.png",
+   "sizes": "192x192",
+   "type": "image/png",
+   "purpose": "maskable"
+  },
+  {
+   "src": "icons/maskable-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
+ ],
+ "shortcuts": [
+  {
+   "name": "নতুন বিক্রয়",
+   "short_name": "বিক্রয়",
+   "url": "./index.html?go=pos:sale",
+   "icons": [
+    {
+     "src": "icons/icon-192.png",
+     "sizes": "192x192"
+    }
+   ]
+  },
+  {
+   "name": "নতুন ক্রয়",
+   "short_name": "ক্রয়",
+   "url": "./index.html?go=pos:purchase",
+   "icons": [
+    {
+     "src": "icons/icon-192.png",
+     "sizes": "192x192"
+    }
+   ]
+  },
+  {
+   "name": "পণ্যসমূহ",
+   "short_name": "পণ্য",
+   "url": "./index.html?go=products",
+   "icons": [
+    {
+     "src": "icons/icon-192.png",
+     "sizes": "192x192"
+    }
+   ]
+  }
+ ]
+}

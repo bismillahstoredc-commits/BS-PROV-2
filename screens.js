@@ -125,12 +125,14 @@ function posStart(type,pre){
   POS={type,editId:pre?.id||null,fromOrder:pre?.fromOrder||null,date:pre?.date||today(),partyId:pre?.partyId||'',
    items:pre?.items?pre.items.map(i=>({pid:i.pid,name:i.name,qty:i.qty,price:i.price,cost:i.cost,manual:true})):[],
    dm:pre?.discMode||'amt',dv:pre?(pre.discMode==='pct'?num(pre.discVal):num(pre.disc)):0,
-   pay:'cash',pc:0,pb:0,note:pre?.note||'',q:''};
+   pay:'cash',pa:'',pc:0,pb:0,note:pre?.note||'',q:''};
   if(pre&&pre.id){ // এডিটের সময় আগের পেমেন্ট ফিরিয়ে আনা
     const paid=num(pre.paid),total=num(pre.total),bank=pre.method==='bank';
     const pc=pre.payCash!==undefined?num(pre.payCash):(bank?0:paid),pb=pre.payBank!==undefined?num(pre.payBank):(bank?paid:0);
     POS.pc=pc;POS.pb=pb;
     POS.pay=(paid<=0.001&&total>0)?'due':(pb<=0.001&&Math.abs(pc-total)<0.01)?'cash':(pc<=0.001&&Math.abs(pb-total)<0.01)?'bank':'split';
+    if(POS.pay==='split'&&pb<=0.001&&pc>0){POS.pay='cash';POS.pa=String(pc)}
+    else if(POS.pay==='split'&&pc<=0.001&&pb>0){POS.pay='bank';POS.pa=String(pb)}
   }
 }
 SCR.pos=a=>{const type=a.type;if(!POS||POS.type!==type||a.pre){posStart(type,a.pre)}paintPOS()};
@@ -214,7 +216,8 @@ function posTotals(){
   const sub=POS.items.reduce((a,i)=>a+num(i.qty)*num(i.price),0);
   let disc=POS.dm==='pct'?sub*Math.min(100,num(POS.dv))/100:num(POS.dv);disc=r2(Math.min(Math.max(disc,0),sub));
   const total=r2(sub-disc);let pc,pb;
-  if(POS.pay==='cash'){pc=total;pb=0}else if(POS.pay==='bank'){pc=0;pb=total}else if(POS.pay==='due'){pc=0;pb=0}else{pc=num(POS.pc);pb=num(POS.pb)}
+  const pa=(POS.pa===''||POS.pa==null)?total:Math.max(0,num(POS.pa));
+  if(POS.pay==='cash'){pc=pa;pb=0}else if(POS.pay==='bank'){pc=0;pb=pa}else if(POS.pay==='due'){pc=0;pb=0}else{pc=num(POS.pc);pb=num(POS.pb)}
   const paid=r2(pc+pb),cost=POS.items.reduce((a,i)=>a+num(i.qty)*num(i.cost),0);
   return{sub,disc,total,pc:r2(pc),pb:r2(pb),paid,due:r2(Math.max(0,total-paid)),profit:r2(total-cost)};
 }
@@ -225,6 +228,7 @@ function updateSum(){
   g('s_pay',money(o.paid));g('s_due',money(o.due));
   const pf=$('#s_profit');if(pf){pf.textContent=money(o.profit);pf.style.color=o.profit<0?'var(--r)':'var(--g)'}
   const dw=$('#s_duew');if(dw)dw.style.display=o.due>0.001?'':'none';
+  const pa=$('#s_pa');if(pa)pa.placeholder=String(o.total);
 }
 function paintSum(){
   const T=TYPES[POS.type],o=posTotals();
@@ -236,6 +240,7 @@ function paintSum(){
   <div class="t"><span>মোট</span><span id="s_total">${money(o.total)}</span></div>
   <div style="flex-direction:column;align-items:stretch"><span style="font-size:12px;color:var(--m)">${T.cash>0?'টাকা কীভাবে নিলেন?':'টাকা কীভাবে দিলেন?'}</span><div class="tabs" id="s_modes" style="margin:4px 0 0">${modes.map(([k,l])=>`<button class="btn s ${POS.pay===k?'':'o'}" data-m="${k}">${l}</button>`).join('')}</div></div>
   ${POS.pay==='split'?`<div><span>ক্যাশ</span><input type="number" id="s_pc" value="${num(POS.pc)||''}" placeholder="0"></div><div><span>ব্যাংক</span><input type="number" id="s_pb" value="${num(POS.pb)||''}" placeholder="0"></div>`:''}
+  ${(POS.pay==='cash'||POS.pay==='bank')?`<div><span>কত টাকা ${T.cash>0?'পেলেন':'দিলেন'}?</span><input type="number" id="s_pa" value="${POS.pa===''?'':num(POS.pa)}" placeholder="${o.total}"></div>`:''}
   <div><span>পরিশোধ${POS.pay==='cash'?' (ক্যাশ)':POS.pay==='bank'?' (ব্যাংক)':''}</span><b id="s_pay">${money(o.paid)}</b></div>
   <div id="s_duew" style="${o.due>0.001?'':'display:none'}"><span>বাকি${POS.partyId?'':' <small style="color:var(--r)">(পার্টি নির্বাচন করুন)</small>'}</span><b id="s_due" style="color:var(--r)">${money(o.due)}</b></div>
   ${showProfit?`<div><span>আনুমানিক লাভ</span><b id="s_profit" style="color:${o.profit<0?'var(--r)':'var(--g)'}">${money(o.profit)}</b></div>`:''}`;
@@ -243,8 +248,9 @@ function paintSum(){
   $('#s_dm').onchange=e=>{POS.dm=e.target.value;updateSum()};
   $('#s_disc').oninput=e=>{POS.dv=num(e.target.value);updateSum()};
   $('#s_modes').onclick=e=>{const m=e.target.dataset.m;if(!m)return;
-    if(m==='split'&&POS.pay!=='split'){const t=posTotals();POS.pc=t.total;POS.pb=0}
+    if(m==='split'&&POS.pay!=='split'){const t=posTotals();POS.pc=t.pc;POS.pb=t.pb;if(t.paid<=0)POS.pc=t.total}
     POS.pay=m;paintSum()};
+  if($('#s_pa'))$('#s_pa').oninput=e=>{POS.pa=e.target.value;updateSum()};
   if($('#s_pc')){$('#s_pc').oninput=e=>{POS.pc=num(e.target.value);updateSum()};$('#s_pb').oninput=e=>{POS.pb=num(e.target.value);updateSum()}}
 }
 async function posSave(print){

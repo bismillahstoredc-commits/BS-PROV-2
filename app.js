@@ -1,0 +1,106 @@
+'use strict';
+/* ========== auth screens ========== */
+function showAuth(html){$('#app').style.display='none';const a=$('#auth');a.style.display='flex';a.innerHTML=`<div class="ac">${html}</div>`}
+async function mkUser(name,username,pass,role){
+  const salt=uid().slice(0,8);return{id:uid(),name,username,role,salt,hash:await sha256(salt+':'+pass),active:1,createdAt:Date.now()};
+}
+function authSetup(){
+  showAuth(`<h2>BS PRO v2</h2><p style="text-align:center;color:var(--m)">শুরু করুন</p>
+  <button class="btn" style="width:100%;margin-bottom:8px" id="a1">নতুন ব্যবসা তৈরি করুন</button>
+  <button class="btn o" style="width:100%" id="a2">আগের ডেটা GitHub থেকে ফিরিয়ে আনুন</button>`);
+  $('#a1').onclick=authNew;$('#a2').onclick=authRestore;
+}
+function authNew(){
+  showAuth(`<h2>নতুন ব্যবসা</h2><div class="f"><label>ব্যবসার নাম</label><input id="bn"></div><div class="f"><label>আপনার নাম (মালিক)</label><input id="un"></div>
+  <div class="f"><label>ইউজারনেম / ফোন</label><input id="uu"></div><div class="f"><label>পাসওয়ার্ড</label><input id="up" type="password"></div>
+  <button class="btn" style="width:100%" id="go">তৈরি করুন</button><p style="text-align:center"><a id="bk">← ফিরে যান</a></p>`);
+  $('#bk').onclick=authSetup;
+  $('#go').onclick=async()=>{const bn=$('#bn').value.trim(),n=$('#un').value.trim(),u=$('#uu').value.trim(),p=$('#up').value;
+    if(!bn||!n||!u||p.length<4)return toast('সব ঘর পূরণ করুন (পাসওয়ার্ড কমপক্ষে ৪ অক্ষর)','e');
+    ME=await mkUser(n,u,p,'owner');await save('users',ME);
+    await save('meta',{id:'biz',name:bn,design:'t80',footer:'ধন্যবাদ',openCash:0,openBank:0});
+    localStorage.setItem('bspro_uid',ME.id);boot()};
+}
+function authRestore(){
+  showAuth(`<h2>GitHub থেকে রিস্টোর</h2><div class="f"><label>GitHub ইউজারনেম</label><input id="go1" value="${esc(SYNC.owner)}"></div><div class="f"><label>ডেটা Repository-র নাম (প্রাইভেট)</label><input id="gr" value="${esc(SYNC.repo)}"></div>
+  <div class="f"><label>ব্রাঞ্চ</label><input id="gb" value="${esc(SYNC.branch||'main')}"></div><div class="f"><label>অ্যাক্সেস টোকেন</label><input id="gt" type="password" value="${esc(SYNC.token)}"></div>
+  <button class="btn" style="width:100%" id="go">রিস্টোর করুন</button><p style="text-align:center"><a id="bk">← ফিরে যান</a></p>`);
+  $('#bk').onclick=authSetup;
+  $('#go').onclick=async()=>{Object.assign(SYNC,{owner:$('#go1').value.trim(),repo:$('#gr').value.trim(),branch:$('#gb').value.trim()||'main',token:$('#gt').value.trim(),sha:{}});
+    $('#go').disabled=true;$('#go').textContent='ডাউনলোড হচ্ছে...';await doSync(true);
+    if(!live('users').length){$('#go').disabled=false;$('#go').textContent='রিস্টোর করুন';toast('এই repository-তে কোনো ডেটা পাওয়া যায়নি','e');return}
+    boot()};
+}
+function authLogin(){
+  const us=live('users').filter(u=>u.active);
+  showAuth(`<h2>${esc(biz().name||'BS PRO v2')}</h2><div class="f"><label>ব্যবহারকারী</label><select id="lu">${us.map(u=>`<option value="${u.id}">${esc(u.name)} (${u.role==='owner'?'মালিক':'স্টাফ'})</option>`).join('')}</select></div>
+  <div class="f"><label>পাসওয়ার্ড</label><input id="lp" type="password"></div><button class="btn" style="width:100%" id="go">লগইন</button>`);
+  const go=async()=>{const u=S.users.get($('#lu').value);if(!u||await sha256(u.salt+':'+$('#lp').value)!==u.hash)return toast('পাসওয়ার্ড ভুল','e');
+    ME=u;localStorage.setItem('bspro_uid',u.id);boot()};
+  $('#go').onclick=go;$('#lp').onkeydown=e=>{if(e.key==='Enter')go()};$('#lp').focus();
+}
+
+/* ========== boot ========== */
+async function boot(){
+  if(!IDB.db){await IDB.open();await loadAll();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{})}
+  if(!live('users').length)return authSetup();
+  const sid=localStorage.getItem('bspro_uid');ME=sid?S.users.get(sid):null;
+  if(!ME||ME.del||!ME.active){ME=null;return authLogin()}
+  $('#auth').style.display='none';$('#app').style.display='flex';
+  $('#tbz').textContent=biz().name||'';buildMenu();setStatus();
+  go(CUR.r==='logout'?'dash':CUR.r,CUR.a);
+  if(syncOn())doSync();
+}
+window.onSynced=()=>{
+  ME=S.users.get(ME&&ME.id)||ME;if(ME&&(ME.del||!ME.active)){localStorage.removeItem('bspro_uid');location.reload();return}
+  $('#tbz').textContent=biz().name||'';
+  if(!modalOpen()&&['dash','invoices','parties','products','due','expense','cash'].includes(CUR.r))go(CUR.r,CUR.a);
+  toast('নতুন তথ্য সিঙ্ক হয়েছে','k');
+};
+$('#mb').onclick=()=>{$('#drawer').classList.toggle('open');$('#ov').classList.toggle('show')};
+$('#ov').onclick=closeDrawer;
+$('#drawer').onclick=e=>{const m=e.target.closest('.mi');if(m)go(m.dataset.r)};
+$('#pill').onclick=()=>{if(syncOn())doSync(true);else if(isOwner())go('settings');};
+window.addEventListener('error',e=>console.error(e.message));
+
+/* ========== settings ========== */
+SCR.settings=()=>{
+  if(!isOwner())return go('dash');
+  const b=biz();
+  view(`<div class="card"><h3>ব্যবসার প্রোফাইল</h3>${b.logo?`<img src="${b.logo}" style="height:60px;margin-bottom:8px;border-radius:8px"><br>`:''}
+  <div class="grid g2"><div class="f"><label>ব্যবসার নাম</label><input id="bn" value="${esc(b.name||'')}"></div><div class="f"><label>ফোন</label><input id="bp" value="${esc(b.phone||'')}"></div></div>
+  <div class="f"><label>ঠিকানা</label><input id="ba" value="${esc(b.address||'')}"></div><div class="f"><label>ইনভয়েসের নিচের লেখা</label><input id="bf" value="${esc(b.footer||'')}"></div>
+  <div class="grid g2"><div class="f"><label>শুরুর ক্যাশ ব্যালেন্স</label><input id="oc" type="number" value="${num(b.openCash)}"></div><div class="f"><label>শুরুর ব্যাংক ব্যালেন্স</label><input id="ob" type="number" value="${num(b.openBank)}"></div></div>
+  <div class="grid g2"><div class="f"><label>ডিফল্ট ইনভয়েস ডিজাইন</label><select id="bd"><option value="t80">থার্মাল ৮০মিমি</option><option value="t58">থার্মাল ৫৮মিমি</option><option value="a4">A4 (ফরমাল)</option><option value="a5">A5</option></select></div>
+  <div class="f"><label>সেভ করলে অটো প্রিন্ট</label><select id="bap"><option value="">না</option><option value="1">হ্যাঁ</option></select></div></div>
+  <div class="f"><label>লোগো (ছোট করে সেভ হবে)</label><input type="file" id="bl" accept="image/*"></div><button class="btn" id="bsv">সেভ করুন</button></div>
+  <div class="card"><h3>ব্যবহারকারী (স্টাফ)</h3><div id="ul"></div><div class="grid g3" style="margin-top:8px"><div class="f"><label>নাম</label><input id="sn"></div><div class="f"><label>ইউজারনেম</label><input id="su"></div><div class="f"><label>পাসওয়ার্ড</label><input id="sp" type="password"></div></div><button class="btn" id="sadd">স্টাফ যোগ করুন</button></div>
+  <div class="card"><h3>☁ ক্লাউড সিঙ্ক (GitHub)</h3><p style="color:var(--m);font-size:13px;margin-top:0">একাধিক ডিভাইস ও ব্যবহারকারীর ডেটা একসাথে রাখতে একটি <b>প্রাইভেট</b> repository ব্যবহার করুন (README দেখুন)। ডেটা মাস অনুযায়ী আলাদা ছোট ফাইলে জমা হয়, তাই বছরের পর বছর ধীর হবে না।</p>
+  <div class="grid g2"><div class="f"><label>GitHub ইউজারনেম</label><input id="go1" value="${esc(SYNC.owner)}"></div><div class="f"><label>Repository (প্রাইভেট)</label><input id="gr" value="${esc(SYNC.repo)}"></div><div class="f"><label>ব্রাঞ্চ</label><input id="gb" value="${esc(SYNC.branch||'main')}"></div><div class="f"><label>অ্যাক্সেস টোকেন</label><input id="gt" type="password" value="${esc(SYNC.token)}"></div></div>
+  <div class="row"><button class="btn" id="gsv">সংযোগ পরীক্ষা ও সেভ</button><button class="btn gr" id="gsy">এখনই সিঙ্ক</button><button class="btn o" id="gall">সব ডেটা আপলোড</button></div><p id="gst" style="font-size:13px;color:var(--m)">${SYNC.last?'সর্বশেষ সিঙ্ক: '+new Date(SYNC.last).toLocaleString():''}</p></div>
+  <div class="card"><h3>ব্যাকআপ ও স্টোরেজ</h3><div class="row"><button class="btn" id="ex">ব্যাকআপ ডাউনলোড (JSON)</button><label class="btn o" style="margin:0">ব্যাকআপ ফাইল থেকে ফিরিয়ে আনুন<input type="file" id="im" accept=".json" hidden></label></div><p id="stg" style="font-size:13px;color:var(--m)"></p></div>`);
+  $('#bd').value=b.design||'t80';$('#bap').value=b.autoPrint?'1':'';
+  $('#bsv').onclick=async()=>{const rec={...biz(),name:$('#bn').value.trim(),phone:$('#bp').value.trim(),address:$('#ba').value.trim(),footer:$('#bf').value.trim(),openCash:num($('#oc').value),openBank:num($('#ob').value),design:$('#bd').value,autoPrint:$('#bap').value?1:0};
+    const f=$('#bl').files[0];if(f)rec.logo=await shrink(f);await save('meta',rec);$('#tbz').textContent=rec.name;toast('সেভ হয়েছে','k');SCR.settings()};
+  const ul=()=>{$('#ul').innerHTML=tblc(['নাম','ইউজারনেম','ভূমিকা','স্ট্যাটাস',''],live('users').map(u=>[esc(u.name),esc(u.username),u.role==='owner'?'মালিক':'স্টাফ',u.active?'<span class="bd bg">সক্রিয়</span>':'<span class="bd br">বন্ধ</span>',u.role==='owner'&&u.id===ME.id?'':`<div class="row" style="flex-wrap:nowrap"><button class="btn o s" data-tg="${u.id}">${u.active?'বন্ধ করুন':'চালু করুন'}</button><button class="btn o s" data-pw="${u.id}">পাসওয়ার্ড</button></div>`]));
+    $$('[data-tg]').forEach(x=>x.onclick=async()=>{const u=S.users.get(x.dataset.tg);await save('users',{...u,active:u.active?0:1});ul()});
+    $$('[data-pw]').forEach(x=>x.onclick=async()=>{const p=prompt('নতুন পাসওয়ার্ড (কমপক্ষে ৪ অক্ষর):');if(!p||p.length<4)return;const u=S.users.get(x.dataset.pw),salt=uid().slice(0,8);await save('users',{...u,salt,hash:await sha256(salt+':'+p)});toast('পাসওয়ার্ড বদলেছে','k')})};ul();
+  $('#sadd').onclick=async()=>{const n=$('#sn').value.trim(),u=$('#su').value.trim(),p=$('#sp').value;if(!n||!u||p.length<4)return toast('সব ঘর পূরণ করুন (পাসওয়ার্ড ৪+ অক্ষর)','e');
+    if(live('users').some(x=>x.username===u))return toast('এই ইউজারনেম আছে','e');await save('users',await mkUser(n,u,p,'staff'));toast('স্টাফ যোগ হয়েছে','k');SCR.settings()};
+  const rd=()=>Object.assign(SYNC,{owner:$('#go1').value.trim(),repo:$('#gr').value.trim(),branch:$('#gb').value.trim()||'main',token:$('#gt').value.trim()});
+  $('#gsv').onclick=async()=>{rd();try{const r=await gh('');if(!r.ok)throw new Error(r.status===404?'Repository পাওয়া যায়নি (নাম/টোকেন দেখুন)':r.status===401?'টোকেন ভুল':'ত্রুটি '+r.status);const j=await r.json();
+      if(!j.permissions||!j.permissions.push)throw new Error('টোকেনে লেখার অনুমতি নেই (Contents: Read and write দিন)');
+      if(!j.private&&!confirm('⚠ এই repository পাবলিক! আপনার ব্যবসার সব হিসাব সবাই দেখতে পারবে। তবুও চালিয়ে যাবেন?'))return;
+      saveKV();toast('সংযোগ ঠিক আছে, সিঙ্ক শুরু হচ্ছে','k');await doSync(true);SCR.settings()}catch(e){toast(e.message,'e')}};
+  $('#gsy').onclick=()=>{rd();saveKV();doSync(true)};
+  $('#gall').onclick=()=>{rd();if(confirm('সব ডেটা GitHub-এ আপলোড হবে। চালিয়ে যাবেন?'))pushAll()};
+  $('#ex').onclick=()=>{const o={v:2,at:new Date().toISOString()};SYNCED.forEach(s=>o[s]=[...S[s].values()]);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(o)],{type:'application/json'}));a.download='BSPRO-backup-'+today()+'.json';a.click()};
+  $('#im').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const o=JSON.parse(await f.text());let n=0;
+    for(const s of SYNCED){const ch=mergeRows(s,o[s]||[]);if(ch.length){await IDB.putMany(s,ch);ch.forEach(r=>DIRTY[shardOf(s,r)]=++dirtyV);n+=ch.length}}
+    IDXC=null;saveKV();syncSoon();toast(n+'টি তথ্য ফিরিয়ে আনা হয়েছে','k');SCR.settings()}catch(x){toast('ফাইলটি সঠিক নয়','e')}};
+  if(navigator.storage&&navigator.storage.estimate)navigator.storage.estimate().then(s=>{$('#stg').textContent=`ব্যবহৃত স্টোরেজ: ${(s.usage/1048576).toFixed(1)} MB (ব্রাউজার বরাদ্দ: ~${Math.round(s.quota/1048576)} MB)`}).catch(()=>{});
+};
+function shrink(file){return new Promise(res=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas'),k=Math.min(1,256/Math.max(im.width,im.height));c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/png'))};im.src=r.result};r.readAsDataURL(file)})}
+
+if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+boot();

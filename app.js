@@ -1,6 +1,6 @@
 'use strict';
 /* ========== auth screens ========== */
-function showAuth(html){$('#app').style.display='none';const a=$('#auth');a.style.display='flex';a.innerHTML=`<div class="ac"><div class="brand"><img class="l" src="icons/logo-256.png" alt=""><span class="wm"><img src="icons/wordmark.png" alt="BS PRO"></span></div>${html}</div>`}
+function showAuth(html){$('#app').style.display='none';const a=$('#auth');a.style.display='flex';a.innerHTML=`<div class="ac"><div class="brand"><img class="l" src="${LOGO_URI}" alt=""><span class="wm"><img src="${WM_URI}" alt="BS PRO"></span></div>${html}</div>`}
 async function mkUser(name,username,pass,role){
   const salt=uid().slice(0,8);return{id:uid(),name,username,role,salt,hash:await sha256(salt+':'+pass),active:1,createdAt:Date.now()};
 }
@@ -119,3 +119,34 @@ function shrink(file){return new Promise(res=>{const r=new FileReader();r.onload
 
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 boot();
+
+/* ========== ইউটিলিটি: অ্যাকাউন্ট রিসেট (শুধু মালিক) ========== */
+function backupNow(tag){const o={v:2,at:new Date().toISOString()};SYNCED.forEach(s=>o[s]=[...S[s].values()]);const el=document.createElement('a');el.href=URL.createObjectURL(new Blob([JSON.stringify(o)],{type:'application/json'}));el.download='BSPRO-backup-'+(tag||'')+today()+'.json';el.click()}
+SCR.reset=()=>{
+  if(!isOwner())return go('dash');
+  const n=(st,f)=>[...S[st].values()].filter(r=>!r.del&&(!f||f(r))).length;
+  const c={docs:n('docs'),money:n('money'),prod:n('products'),par:n('parties'),lists:n('meta',r=>r.kind==='unit'||r.kind==='cat')};
+  view(`<div class="card"><h3>🔧 অ্যাকাউন্ট রিসেট</h3>
+  <p style="margin-top:0;color:var(--r)"><b>সতর্কতা:</b> রিসেট করলে হিসাব ফিরিয়ে আনা যায় না। শুরুর আগে অটোমেটিক একটি ব্যাকআপ ফাইল ডাউনলোড হবে — সেটি সযত্নে রাখুন। ব্যবহারকারী (মালিক/স্টাফ), ব্যবসার প্রোফাইল ও সিঙ্ক সেটিং অক্ষত থাকবে।</p>
+  <label class="f" style="flex-direction:row;gap:8px;align-items:flex-start;cursor:pointer"><input type="radio" name="rm" value="tx" checked style="width:auto;margin-top:4px"><span><b>শুধু লেনদেন রিসেট</b><br><small style="color:var(--m)">${c.docs}টি ইনভয়েস/অর্ডার/ফেরত/ফ্রি এবং ${c.money}টি খরচ, আদায়-পরিশোধ ও ক্যাশ-ব্যাংক এন্ট্রি মুছবে। পণ্য (শুরুর স্টকসহ), পার্টি (শুরুর বকেয়াসহ), ক্যাটাগরি ও একক থাকবে।</small></span></label>
+  <label class="f" style="flex-direction:row;gap:8px;align-items:flex-start;cursor:pointer"><input type="radio" name="rm" value="all" style="width:auto;margin-top:4px"><span><b>পূর্ণ রিসেট (নতুন করে শুরু)</b><br><small style="color:var(--m)">উপরের সব লেনদেন + ${c.prod}টি পণ্য + ${c.par}টি পার্টি + ${c.lists}টি ক্যাটাগরি/একক মুছবে।</small></span></label>
+  <label class="f" style="flex-direction:row;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="rz" style="width:auto"><span>শুরুর ক্যাশ ও ব্যাংক ব্যালেন্সও ০ করুন</span></label>
+  <div class="grid g2"><div class="f"><label>আপনার (মালিকের) পাসওয়ার্ড</label><input type="password" id="rp" autocomplete="current-password"></div><div class="f"><label>নিশ্চিত করতে <b>RESET</b> লিখুন</label><input id="rc" autocomplete="off"></div></div>
+  <button class="btn d" id="rgo">রিসেট করুন</button></div>`);
+  $('#rgo').onclick=async()=>{
+    const full=$('input[name=rm]:checked').value==='all';
+    if($('#rc').value.trim()!=='RESET')return toast('নিশ্চিত করতে RESET লিখুন','e');
+    const u=S.users.get(ME.id);if(!u||await sha256(u.salt+':'+$('#rp').value)!==u.hash)return toast('পাসওয়ার্ড ভুল','e');
+    if(!confirm(full?'সব ডেটা (পণ্য, পার্টি, লেনদেন) মুছে যাবে। নিশ্চিত?':'সব লেনদেন মুছে যাবে। নিশ্চিত?'))return;
+    $('#rgo').disabled=true;
+    try{
+      backupNow('before-reset-');
+      const del=async(st,f)=>{const rs=[...S[st].values()].filter(r=>!r.del&&(!f||f(r))).map(r=>({...r,del:1}));if(rs.length)await saveMany(st,rs)};
+      await del('docs');await del('money');
+      if(full){await del('products');await del('parties');await del('meta',r=>r.kind==='unit'||r.kind==='cat')}
+      if($('#rz').checked)await save('meta',{...biz(),openCash:0,openBank:0});
+      POS=null;IDXC=null;
+      toast('রিসেট সম্পন্ন হয়েছে','k');go('dash');
+    }catch(e){toast('ত্রুটি: '+e.message,'e');$('#rgo').disabled=false}
+  };
+};

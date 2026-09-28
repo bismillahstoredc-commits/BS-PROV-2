@@ -7,11 +7,12 @@ const MENU=[
  ['হিসাব'],['invoices','🧾','ইনভয়েস তালিকা'],['due','💳','দেনা-পাওনা'],['expense','💸','খরচ'],['cash','🏦','ক্যাশ ও ব্যাংক'],
  ['পণ্য'],['products','📦','পণ্যসমূহ'],['categories','🗂️','ক্যাটাগরি'],['units','📏','একক'],['তালিকা'],['parties','👥','পার্টি (কাস্টমার/সাপ্লায়ার)'],
  ['রিপোর্ট'],['reports','📊','রিপোর্ট'],
- ['সেটিংস'],['settings','⚙️','সেটিংস','owner']
+ ['ইউটিলিটি'],['reset','🔧','অ্যাকাউন্ট রিসেট','owner'],
+['সেটিংস'],['settings','⚙️','সেটিংস','owner']
 ];
 let CUR={r:'dash',a:null};
 function buildMenu(){
-  $('#drawer').innerHTML=`<div class="dh"><img src="icons/logo-256.png" alt=""><div><b>${esc(ME.name)}</b><small>${ME.role==='owner'?'মালিক':'স্টাফ'}</small></div></div>`+
+  $('#drawer').innerHTML=`<div class="dh"><img src="${LOGO_URI}" alt=""><div><b>${esc(ME.name)}</b><small>${ME.role==='owner'?'মালিক':'স্টাফ'}</small></div></div>`+
    MENU.map(m=>m.length===1?`<div class="ms">${m[0]}</div>`:(m[3]==='owner'&&!isOwner()?'':`<div class="mi" data-r="${m[0]}"><span>${m[1]}</span>${m[2]}</div>`)).join('')+
    `<div class="mi" id="inst" data-r="install" style="display:none"><span>📲</span>অ্যাপ ইনস্টল করুন</div><div class="mi" data-r="logout"><span>🚪</span>লগআউট</div>`;
   if(window.refreshInstall)refreshInstall();
@@ -84,7 +85,7 @@ function productForm(p,cb,pre){
   <div class="row"><button class="btn" id="fsv">সেভ করুন</button>${p&&isOwner()?'<button class="btn d" id="fdel">ডিলিট</button>':''}</div>`,()=>{
     $('#fscan').onclick=()=>openScanner(c=>{$('#fbc').value=c;beep(true)},false);
     $('#fgen').onclick=()=>{$('#fbc').value=genBarcode()};
-    const plus=(kind,btn,sel)=>{$(btn).onclick=async()=>{const nm=prompt('নতুন '+LK[kind].l+'র নাম:');if(!nm)return;const n=await addListName(kind,nm);if(n)$(sel).innerHTML=opt(kind,n)}};
+    const plus=(kind,btn,sel)=>{$(btn).onclick=async()=>{const nm=prompt('নতুন '+LK[kind].l+' — নাম লিখুন:');if(!nm)return;const n=await addListName(kind,nm);if(n)$(sel).innerHTML=opt(kind,n)}};
     plus('cat','#fcn','#fc');plus('unit','#fun','#fu');
     $('#fsv').onclick=async()=>{
       const name=$('#fn').value.trim();if(!name)return toast('নাম দিন','e');
@@ -306,7 +307,7 @@ function invoiceHTML(d,design){
   .hd{${th?'':'display:flex;align-items:center;gap:14px;border-bottom:3px solid #6c2bd9;padding-bottom:8px;margin-bottom:8px'}}
   .tt{font-weight:700;text-align:center;margin:6px 0;${th?'':'font-size:'+(fs+3)+'px;letter-spacing:1px'}}.sg{display:flex;justify-content:space-between;margin-top:${th?'10':'50'}px}.sg span{border-top:1px solid #000;padding-top:3px;min-width:${th?'70':'150'}px;text-align:center}
   img.lg{height:${th?38:64}px}.tot td{font-weight:700}</style></head><body>
-  <div class="hd ${th?'c':''}"><img class="lg" src="${b.logo||new URL('icons/logo-256.png',location.href).href}">${th?'<br>':''}<div><h2>${esc(b.name||'')}</h2>${esc(b.address||'')}${b.phone?'<br>মোবাইল: '+esc(b.phone):''}</div></div>
+  <div class="hd ${th?'c':''}"><img class="lg" src="${b.logo||LOGO_URI}">${th?'<br>':''}<div><h2>${esc(b.name||'')}</h2>${esc(b.address||'')}${b.phone?'<br>মোবাইল: '+esc(b.phone):''}</div></div>
   <div class="tt">${t.l} ${t.order?'':'ইনভয়েস'}</div>
   <div>নং: <b>${esc(d.no)}</b> &nbsp; তারিখ: ${d.date}</div>${p?`<div>${p.type==='supplier'?'সাপ্লায়ার':'কাস্টমার'}: <b>${esc(p.name)}</b>${p.phone?' ('+esc(p.phone)+')':''}${p.address?'<br>'+esc(p.address):''}</div>`:''}
   <table style="margin-top:6px"><thead><tr><th>#</th><th>বিবরণ</th><th class="n">পরিমাণ</th><th class="n">দর</th><th class="n">টাকা</th></tr></thead><tbody>${rows}

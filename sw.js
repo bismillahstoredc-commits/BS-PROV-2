@@ -1,6 +1,6 @@
 // Caches the app shell so BS PRO opens with no internet. Network-first so updates arrive when online.
-const V='bspro2-v3';
-const FILES=['./','index.html','core.js','scan.js','screens.js','screens2.js','app.js','manifest.json','icons/icon-192.png','icons/icon-512.png','icons/maskable-192.png','icons/maskable-512.png','icons/apple-touch-icon.png','icons/favicon-32.png','icons/favicon-64.png','icons/favicon.ico','icons/logo-256.png','icons/wordmark.png'];
+const V='bspro2-v6';
+const FILES=['./','index.html','core.js','scan.js','brand.js','screens.js','screens2.js','app.js','manifest.json','icons/icon-192.png','icons/icon-512.png','icons/maskable-192.png','icons/maskable-512.png','icons/apple-touch-icon.png','icons/favicon-32.png','icons/favicon-64.png','icons/favicon.ico','icons/logo-256.png','icons/wordmark.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>Promise.all(FILES.map(f=>c.add(f).catch(()=>{})))).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==V).map(x=>caches.delete(x)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',e=>{

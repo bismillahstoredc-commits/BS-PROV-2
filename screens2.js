@@ -21,18 +21,18 @@ function listPage(kind){
   const cnt={};live('products').forEach(p=>{const n=(p[k.field]||'').trim();if(n)cnt[n]=(cnt[n]||0)+1});
   const recs={};live('meta').filter(m=>m.kind===kind).forEach(m=>recs[m.name]=m);
   const names=listNames(kind);
-  view(`<div class="card"><h3>নতুন ${k.l} যোগ করুন</h3><div class="row" style="flex-wrap:nowrap"><input id="ln" placeholder="${k.l}র নাম লিখুন"><button class="btn" id="la">+ যোগ করুন</button></div></div>
-  <div class="card"><h3>${k.l} তালিকা (${names.length}টি)</h3>${tblc(['নাম','>পণ্য সংখ্যা',''],names.map((n,i)=>[esc(n),cnt[n]||0,`<div class="row" style="flex-wrap:nowrap"><button class="btn o s" data-r="${i}">নাম বদলান</button>${isOwner()?`<button class="btn d s" data-d="${i}">ডিলিট</button>`:''}</div>`]))}</div>`);
+  view(`<div class="card"><h3>নতুন ${k.l} যোগ করুন</h3><div class="row" style="flex-wrap:nowrap"><input id="ln" placeholder="নাম লিখুন"><button class="btn" id="la">+ যোগ করুন</button></div></div>
+  <div class="card"><h3>${k.l} তালিকা (${names.length}টি)</h3>${tblc(['নাম','>পণ্য সংখ্যা',''],names.map((n,i)=>[esc(n),cnt[n]||0,`<div class="row" style="flex-wrap:nowrap"><button class="btn o s" data-rn="${i}">নাম বদলান</button>${isOwner()?`<button class="btn d s" data-dl="${i}">ডিলিট</button>`:''}</div>`]))}</div>`);
   const add=async()=>{const n=$('#ln').value.trim();if(!n)return toast('নাম দিন','e');
     if(names.some(x=>x.toLowerCase()===n.toLowerCase()&&recs[x]))return toast('এই নাম আগে থেকেই আছে','e');
     await addListName(kind,n);toast('যোগ হয়েছে','k');listPage(kind)};
   $('#la').onclick=add;$('#ln').onkeydown=e=>{if(e.key==='Enter')add()};
-  $$('[data-r]').forEach(b=>b.onclick=async()=>{const old=names[b.dataset.r];const nn=(prompt(k.l+'র নতুন নাম:',old)||'').trim();if(!nn||nn===old)return;
+  $$('#main [data-rn]').forEach(b=>b.onclick=async()=>{const old=names[b.dataset.rn];const nn=(prompt(k.l+' — নতুন নাম লিখুন:',old)||'').trim();if(!nn||nn===old)return;
     if(names.some(x=>x!==old&&x.toLowerCase()===nn.toLowerCase()))return toast('এই নাম আগে থেকেই আছে','e');
     if(recs[old])await save('meta',{...recs[old],name:nn});else await save('meta',{id:kind+'_'+uid(),kind,name:nn});
     const ps=live('products').filter(p=>(p[k.field]||'').trim()===old).map(p=>({...p,[k.field]:nn}));if(ps.length)await saveMany('products',ps);
     toast('নাম বদলেছে','k');listPage(kind)});
-  $$('[data-d]').forEach(b=>b.onclick=async()=>{const n=names[b.dataset.d];
+  $$('#main [data-dl]').forEach(b=>b.onclick=async()=>{const n=names[b.dataset.dl];
     if(cnt[n])return toast(`${cnt[n]}টি পণ্যে এই ${k.l} ব্যবহার হচ্ছে — আগে ওই পণ্যগুলো বদলান`,'e');
     if(!confirm('ডিলিট করবেন?'))return;if(recs[n])await remove('meta',recs[n]);toast('ডিলিট হয়েছে');listPage(kind)});
 }
@@ -140,7 +140,7 @@ function paintR(){
     h=`<div class="grid g3"><div class="stat g"><small>মোট</small><div>${money(a)}</div></div><div class="stat"><small>পরিশোধ</small><div>${money(b)}</div></div><div class="stat r"><small>বকেয়া</small><div>${money(c)}</div></div></div><br>`+tblc(['ইনভয়েস','তারিখ','পার্টি','>মোট','>পরিশোধ','>বকেয়া'],rows.map(d=>[esc(d.no),d.date,partyName(d.partyId),money(d.total),money(d.paid),money(num(d.total)-num(d.paid))]),['মোট '+rows.length+'টি','','',money(a),money(b),money(c)])}
   else if(T==='items'){const m={};dl('sale').forEach(d=>d.items.forEach(i=>{const x=m[i.pid]||(m[i.pid]={n:i.name,q:0,a:0,c:0});x.q+=num(i.qty);x.a+=num(i.qty)*num(i.price);x.c+=num(i.qty)*num(i.cost)}));
     const rows=Object.values(m).sort((a,b)=>b.a-a.a);let q=0,a=0,c=0;rows.forEach(x=>{q+=x.q;a+=x.a;c+=x.c});
-    h=tblc(['পণ্য','>পরিমাণ','>বিক্রয়','>লাভ'],rows.map(x=>[esc(x.n),r2(x.q),money(x.a),money(x.a-x.c)]),['মোট',r2(q),money(a),money(a-c)])}
+    h=isOwner()?tblc(['পণ্য','>পরিমাণ','>বিক্রয়','>লাভ'],rows.map(x=>[esc(x.n),r2(x.q),money(x.a),money(x.a-x.c)]),['মোট',r2(q),money(a),money(a-c)]):tblc(['পণ্য','>পরিমাণ','>বিক্রয়'],rows.map(x=>[esc(x.n),r2(x.q),money(x.a)]),['মোট',r2(q),money(a)])}
   else if(T==='stock'){let tv=0;const rows=live('products').sort((a,b)=>a.name.localeCompare(b.name)).map(p=>{const s=stockOf(p.id),v=Math.max(s,0)*num(p.buyPrice);tv+=v;return [esc(p.name),`${r2(s)} ${esc(p.unit||'')}`,money(p.buyPrice),money(v)]});
     h=tblc(['পণ্য','>স্টক','>ক্রয় মূল্য','>স্টক মূল্য'],rows,['মোট','','',money(tv)])}
   else if(T==='due'){['customer','supplier'].forEach(ty=>{let t=0;const rows=live('parties').filter(p=>p.type===ty).map(p=>({p,d:dueOf(p)})).filter(x=>Math.abs(x.d)>.001).sort((a,b)=>b.d-a.d);rows.forEach(x=>t+=x.d);

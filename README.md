@@ -4,7 +4,7 @@
 
 ## ধাপ ১: অ্যাপ হোস্ট করুন (GitHub Pages, ফ্রি)
 1. GitHub-এ নতুন repository খুলুন, নাম যেমন `bspro-app` (এখানে শুধু অ্যাপের কোড থাকবে, ব্যবসার ডেটা নয়; ফ্রি Pages-এর জন্য এটি Public হতে হবে)।
-2. এই ফোল্ডারের **সব ফাইল** (index.html, core.js, screens.js, screens2.js, scan.js, app.js, sw.js, manifest.json, icons ফোল্ডার) আপলোড করুন।
+2. এই ফোল্ডারের **সব ফাইল** (index.html, core.js, screens.js, screens2.js, scan.js, brand.js, app.js, sw.js, manifest.json, icons ফোল্ডার) আপলোড করুন।
 3. Settings → Pages → Source: `Deploy from a branch` → Branch: `main` / `(root)` → Save।
 4. কয়েক মিনিট পর `https://আপনার-ইউজারনেম.github.io/bspro-app/` লিংকে অ্যাপ খুলবে।
 
@@ -44,3 +44,6 @@
 - **iPhone (Safari):** শেয়ার → Add to Home Screen।
 - হোম স্ক্রিনের আইকন চেপে ধরলে **নতুন বিক্রয় / নতুন ক্রয় / পণ্যসমূহ** শর্টকাট পাবেন (Android/কম্পিউটার)।
 - আপডেট দিলে `sw.js`-এর `bspro2-v3` সংখ্যাটি বাড়িয়ে দিন, যাতে পুরনো ক্যাশ সরে যায়।
+
+## ইউটিলিটি → অ্যাকাউন্ট রিসেট
+শুধু মালিক দেখতে পান। পাসওয়ার্ড ও RESET লেখা লাগে, রিসেটের আগে অটো ব্যাকআপ নামে। "শুধু লেনদেন" বা "পূর্ণ রিসেট" বেছে নেওয়া যায়। সিঙ্ক চালু থাকলে অন্য ডিভাইসেও একই রিসেট প্রযোজ্য হয়।

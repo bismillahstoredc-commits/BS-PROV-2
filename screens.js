@@ -35,19 +35,27 @@ const byDateDesc=(a,b)=>(a.date<b.date?1:a.date>b.date?-1:num(b.createdAt||b.upd
 
 /* ========== dashboard ========== */
 const SCR={};
+const DASH={hide:localStorage.getItem('dashHide')==='1'};
 SCR.dash=()=>{
-  const X=idx(),t=today();let sale=0,pur=0,exp=0,n=0;const days={};
+  const X=idx(),t=today();let sale=0,pur=0,exp=0,n=0,gp=0;const days={};
   for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);days[d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())]=0}
-  S.docs.forEach(d=>{if(d.del)return;if(d.type==='sale'){if(d.date===t){sale+=num(d.total);n++}if(d.date in days)days[d.date]+=num(d.total)}if(d.type==='purchase'&&d.date===t)pur+=num(d.total)});
+  S.docs.forEach(d=>{if(d.del)return;if(d.type==='sale'){if(d.date===t){sale+=num(d.total);n++;d.items.forEach(i=>gp+=num(i.qty)*(num(i.price)-num(i.cost)))}if(d.date in days)days[d.date]+=num(d.total)}if(d.type==='sale_return'&&d.date===t)d.items.forEach(i=>gp-=num(i.qty)*(num(i.price)-num(i.cost)));if(d.type==='purchase'&&d.date===t)pur+=num(d.total)});
   S.money.forEach(m=>{if(!m.del&&m.kind==='expense'&&m.date===t)exp+=num(m.amount)});
   let recv=0,pay=0;S.parties.forEach(p=>{if(p.del)return;const d=dueOf(p);if(p.type==='supplier')pay+=d;else recv+=d});
   let sv=0,low=0;S.products.forEach(p=>{if(p.del)return;const s=stockOf(p.id);sv+=Math.max(s,0)*num(p.buyPrice);if(num(p.low)>0&&s<=num(p.low))low++});
   const recent=live('docs').sort(byDateDesc).slice(0,6);const mx=Math.max(1,...Object.values(days));
-  view(`<div class="grid g4"><div class="stat g"><small>আজকের বিক্রয় (${n}টি)</small><div>${money(sale)}</div></div><div class="stat o"><small>আজকের ক্রয়</small><div>${money(pur)}</div></div><div class="stat r"><small>আজকের খরচ</small><div>${money(exp)}</div></div><div class="stat"><small>স্টক মূল্য</small><div>${money(sv)}</div></div></div>
+  const H=v=>DASH.hide?'••••':v,net=r2(gp-exp);
+  view(`<div class="hero"><div class="hd"><span>মোট ব্যালেন্স</span><span class="eye" id="dh_eye">${DASH.hide?'🙈':'👁'}</span></div>
+  <div class="amt">${H(money(X.cash+X.bank))}</div>
+  <div class="sub"><span>ক্যাশ ${H(money(X.cash))}</span><span>ব্যাংক ${H(money(X.bank))}</span></div>
+  <div class="inner"><div><small>আজকের বিক্রি</small><div>${H(money(sale))}</div></div><div class="r"><small>নিট মুনাফা (খরচ বাদে)</small><div>${H(money(net))}</div></div></div>
+  <div class="detail">মোট মুনাফা ${H(money(gp))} − খরচ ${H(money(exp))}</div></div>
+  <div class="grid g4"><div class="stat g"><small>আজকের বিক্রয় (${n}টি)</small><div>${money(sale)}</div></div><div class="stat o"><small>আজকের ক্রয়</small><div>${money(pur)}</div></div><div class="stat r"><small>আজকের খরচ</small><div>${money(exp)}</div></div><div class="stat"><small>স্টক মূল্য</small><div>${money(sv)}</div></div></div>
   <div class="grid g4" style="margin-top:10px"><div class="stat g"><small>ক্যাশ ব্যালেন্স</small><div>${money(X.cash)}</div></div><div class="stat"><small>ব্যাংক ব্যালেন্স</small><div>${money(X.bank)}</div></div><div class="stat g"><small>কাস্টমারের কাছে পাওনা</small><div>${money(recv)}</div></div><div class="stat r"><small>সাপ্লায়ারকে দেনা</small><div>${money(pay)}</div></div></div>
   <div class="card" style="margin-top:12px"><h3>গত ৭ দিনের বিক্রয়</h3><div class="bars">${Object.entries(days).map(([d,v])=>`<div><i style="height:${Math.round(v/mx*80)}px"></i>${d.slice(8)}</div>`).join('')}</div></div>
   <div class="card"><h3>দ্রুত কাজ</h3><div class="row"><button class="btn" data-go="pos:sale">🛒 নতুন বিক্রয়</button><button class="btn o" data-go="pos:purchase">📥 নতুন ক্রয়</button><button class="btn o" data-go="expense">💸 খরচ</button><button class="btn o" data-go="due">💳 দেনা-পাওনা</button>${low?`<button class="btn d" data-go="products">⚠ লো-স্টক (${low})</button>`:''}</div></div>
   <div class="card"><h3>সাম্প্রতিক লেনদেন</h3>${tblc(['ইনভয়েস','তারিখ','পার্টি','>মোট'],recent.map(d=>[`<a href="#" data-view="${d.id}">${esc(d.no)}</a> <span class="bd bp">${TYPES[d.type].l}</span>`,d.date,partyName(d.partyId),money(d.total)]))}</div>`);
+  $('#dh_eye').onclick=()=>{DASH.hide=!DASH.hide;localStorage.setItem('dashHide',DASH.hide?'1':'0');SCR.dash()};
 };
 
 /* ========== একক ও ক্যাটাগরি তালিকা (meta-তে kind:'unit'|'cat' হিসেবে সেভ হয়) ========== */
@@ -217,7 +225,8 @@ function posTotals(){
   let disc=POS.dm==='pct'?sub*Math.min(100,num(POS.dv))/100:num(POS.dv);disc=r2(Math.min(Math.max(disc,0),sub));
   const total=r2(sub-disc);let pc,pb;
   const pa=(POS.pa===''||POS.pa==null)?total:Math.max(0,num(POS.pa));
-  if(POS.pay==='cash'){pc=pa;pb=0}else if(POS.pay==='bank'){pc=0;pb=pa}else if(POS.pay==='due'){pc=0;pb=0}else{pc=num(POS.pc);pb=num(POS.pb)}
+  const da=Math.max(0,num(POS.pa));
+  if(POS.pay==='cash'){pc=pa;pb=0}else if(POS.pay==='bank'){pc=0;pb=pa}else if(POS.pay==='due'){pc=da;pb=0}else{pc=num(POS.pc);pb=num(POS.pb)}
   const paid=r2(pc+pb),cost=POS.items.reduce((a,i)=>a+num(i.qty)*num(i.cost),0);
   return{sub,disc,total,pc:r2(pc),pb:r2(pb),paid,due:r2(Math.max(0,total-paid)),profit:r2(total-cost)};
 }
@@ -228,7 +237,7 @@ function updateSum(){
   g('s_pay',money(o.paid));g('s_due',money(o.due));
   const pf=$('#s_profit');if(pf){pf.textContent=money(o.profit);pf.style.color=o.profit<0?'var(--r)':'var(--g)'}
   const dw=$('#s_duew');if(dw)dw.style.display=o.due>0.001?'':'none';
-  const pa=$('#s_pa');if(pa)pa.placeholder=String(o.total);
+  const pa=$('#s_pa');if(pa)pa.placeholder=POS.pay==='due'?'0':String(o.total);
 }
 function paintSum(){
   const T=TYPES[POS.type],o=posTotals();
@@ -241,6 +250,7 @@ function paintSum(){
   <div style="flex-direction:column;align-items:stretch"><span style="font-size:12px;color:var(--m)">${T.cash>0?'টাকা কীভাবে নিলেন?':'টাকা কীভাবে দিলেন?'}</span><div class="tabs" id="s_modes" style="margin:4px 0 0">${modes.map(([k,l])=>`<button class="btn s ${POS.pay===k?'':'o'}" data-m="${k}">${l}</button>`).join('')}</div></div>
   ${POS.pay==='split'?`<div><span>ক্যাশ</span><input type="number" id="s_pc" value="${num(POS.pc)||''}" placeholder="0"></div><div><span>ব্যাংক</span><input type="number" id="s_pb" value="${num(POS.pb)||''}" placeholder="0"></div>`:''}
   ${(POS.pay==='cash'||POS.pay==='bank')?`<div><span>কত টাকা ${T.cash>0?'পেলেন':'দিলেন'}?</span><input type="number" id="s_pa" value="${POS.pa===''?'':num(POS.pa)}" placeholder="${o.total}"></div>`:''}
+  ${POS.pay==='due'?`<div><span>এখন কিছু আদায় করলে (ক্যাশ)</span><input type="number" id="s_pa" value="${POS.pa===''?'':num(POS.pa)}" placeholder="0"></div>`:''}
   <div><span>পরিশোধ${POS.pay==='cash'?' (ক্যাশ)':POS.pay==='bank'?' (ব্যাংক)':''}</span><b id="s_pay">${money(o.paid)}</b></div>
   <div id="s_duew" style="${o.due>0.001?'':'display:none'}"><span>বাকি${POS.partyId?'':' <small style="color:var(--r)">(পার্টি নির্বাচন করুন)</small>'}</span><b id="s_due" style="color:var(--r)">${money(o.due)}</b></div>
   ${showProfit?`<div><span>আনুমানিক লাভ</span><b id="s_profit" style="color:${o.profit<0?'var(--r)':'var(--g)'}">${money(o.profit)}</b></div>`:''}`;

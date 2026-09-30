@@ -2,13 +2,15 @@
 /* ========== products ========== */
 let PQ='';
 SCR.products=()=>{
-  view(`<div class="card"><div class="row sp"><h3 style="margin:0">পণ্য তালিকা</h3><div class="row"><input id="q" placeholder="নাম / বারকোড..." style="width:170px" value="${esc(PQ)}"><button class="btn" id="add">+ নতুন পণ্য</button></div></div></div><div class="card" id="pl"></div>`);
+  view(`<div class="card"><div class="row sp"><h3 style="margin:0">পণ্য তালিকা</h3><div class="row"><input id="q" placeholder="নাম / বারকোড..." style="width:170px" value="${esc(PQ)}"><button class="btn" id="add">+ নতুন পণ্য</button></div></div></div><div id="pst" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px"></div><div class="card" id="pl"></div>`);
   $('#add').onclick=()=>productForm(null,()=>SCR.products());$('#q').oninput=e=>{PQ=e.target.value;paint()};
   function paint(){
     const q=PQ.toLowerCase();let tv=0,ts=0;
     const rows=live('products').filter(p=>!q||p.name.toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q)||(p.barcode||'').toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name));
     const body=rows.map(p=>{const s=stockOf(p.id),v=Math.max(s,0)*num(p.buyPrice);tv+=v;ts+=s;const low=num(p.low)>0&&s<=num(p.low);
       return [`${esc(p.name)}${low?' <span class="bd br">লো</span>':''}${p.barcode?`<br><small style="color:var(--m)">▮ ${esc(p.barcode)}</small>`:''}`,esc(p.category||'-'),money(p.buyPrice),money(p.sellPrice),num(p.wsPrice)>0?`${money(p.wsPrice)}<br><small style="color:var(--m)">${r2(p.wsMin)}+ ${esc(p.unit||'')}</small>`:'-',`${r2(s)} ${esc(p.unit||'')}`,money(v),`<button class="btn o s" data-e="${p.id}">এডিট</button>`]});
+    const stb=(c,l,v)=>`<div class="stat ${c}" style="padding:10px 8px;min-width:0"><small>${l}</small><div style="font-size:clamp(14px,4.2vw,20px);word-break:break-word">${v}</div></div>`;
+    $('#pst').innerHTML=stb('','মোট পণ্য',rows.length)+stb('g','মোট পরিমাণ (Qty)',r2(ts))+stb('o','মোট দর <small>(ক্রয় মূল্যে)</small>',money(tv));
     $('#pl').innerHTML=tblc(['নাম','ক্যাটাগরি','>ক্রয়','>খুচরা','>পাইকারী','>স্টক','>স্টক মূল্য',''],body,['মোট '+rows.length+'টি','','','','',r2(ts),money(tv),'']);
     $$('[data-e]').forEach(b=>b.onclick=()=>productForm(S.products.get(b.dataset.e),()=>SCR.products()));
   }
@@ -129,14 +131,20 @@ SCR.cash=()=>{
 };
 
 /* ========== reports ========== */
-let RP={tab:'sales',from:today().slice(0,8)+'01',to:today()};
+let RP={tab:'sales',from:today().slice(0,8)+'01',to:today(),sq:''};
 const RTABS=[['sales','বিক্রয়'],['items','পণ্যভিত্তিক বিক্রয়'],['purchase','ক্রয়'],['stock','স্টক'],['due','দেনা-পাওনা'],['expense','খরচ'],['daybook','ক্যাশবুক','o'],['pl','লাভ-ক্ষতি','o'],['bs','ব্যালেন্স শীট','o']];
 SCR.reports=()=>{
   view(`<div class="card"><div class="tabs">${RTABS.filter(t=>t[2]!=='o'||isOwner()).map(([k,l])=>`<button class="btn s ${RP.tab===k?'':'o'}" data-t="${k}">${l}</button>`).join('')}</div>
-  <div class="row"><div class="f" style="margin:0"><label>শুরু</label><input type="date" id="f" value="${RP.from}"></div><div class="f" style="margin:0"><label>শেষ</label><input type="date" id="t" value="${RP.to}"></div><button class="btn o" id="pr" style="margin-top:16px">🖨 প্রিন্ট</button></div></div><div class="card" id="rb"></div>`);
+  <div class="row"><div class="f" style="margin:0"><label>শুরু</label><input type="date" id="f" value="${RP.from}"></div><div class="f" style="margin:0"><label>শেষ</label><input type="date" id="t" value="${RP.to}"></div><button class="btn o" id="pr" style="margin-top:16px">🖨 প্রিন্ট</button></div>${RP.tab==='stock'?`<div class="row" style="margin-top:10px;flex-wrap:nowrap"><input id="rsq" placeholder="🔍 নাম / ক্যাটাগরি / বারকোড দিয়ে খুঁজুন..." value="${esc(RP.sq)}" style="flex:1;min-width:0"><button class="btn s" id="rscan" type="button">📷 স্ক্যান</button><button class="btn o s" id="rsx" type="button" title="মুছুন">✕</button></div>`:''}</div><div class="card" id="rb"></div>`);
   $$('[data-t]').forEach(b=>b.onclick=()=>{RP.tab=b.dataset.t;SCR.reports()});
   $('#f').onchange=e=>{RP.from=e.target.value;paintR()};$('#t').onchange=e=>{RP.to=e.target.value;paintR()};
   $('#pr').onclick=()=>printHTML(`<html><head><meta charset="utf-8"><style>body{font-family:'Hind Siliguri',Arial,sans-serif;font-size:12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #999;padding:4px;text-align:left}.n{text-align:right}tr.tot td{font-weight:700}</style></head><body><h3>${esc(biz().name||'')} — ${RTABS.find(t=>t[0]===RP.tab)[1]} রিপোর্ট</h3><p>${RP.from} থেকে ${RP.to}</p>${$('#rb').innerHTML}</body></html>`);
+  if($('#rsq')){
+    $('#rsq').oninput=e=>{RP.sq=e.target.value;paintR()};
+    $('#rsq').onkeydown=e=>{if(e.key==='Enter')e.preventDefault()};
+    $('#rsx').onclick=()=>{RP.sq='';$('#rsq').value='';paintR();$('#rsq').focus()};
+    $('#rscan').onclick=()=>openScanner(c=>{RP.sq=String(c).trim();$('#rsq').value=RP.sq;paintR();const n=live('products').filter(p=>(p.barcode||'').trim()===RP.sq).length;beep(n>0);return n?'✓ পাওয়া গেছে':'✗ এই বারকোডের পণ্য নেই'},false);
+  }
   paintR();
 };
 const inR=d=>(!RP.from||d.date>=RP.from)&&(!RP.to||d.date<=RP.to);
@@ -148,8 +156,8 @@ function paintR(){
   else if(T==='items'){const m={};dl('sale').forEach(d=>d.items.forEach(i=>{const x=m[i.pid]||(m[i.pid]={n:i.name,q:0,a:0,c:0});x.q+=num(i.qty);x.a+=num(i.qty)*num(i.price);x.c+=num(i.qty)*num(i.cost)}));
     const rows=Object.values(m).sort((a,b)=>b.a-a.a);let q=0,a=0,c=0;rows.forEach(x=>{q+=x.q;a+=x.a;c+=x.c});
     h=isOwner()?tblc(['পণ্য','>পরিমাণ','>বিক্রয়','>লাভ'],rows.map(x=>[esc(x.n),r2(x.q),money(x.a),money(x.a-x.c)]),['মোট',r2(q),money(a),money(a-c)]):tblc(['পণ্য','>পরিমাণ','>বিক্রয়'],rows.map(x=>[esc(x.n),r2(x.q),money(x.a)]),['মোট',r2(q),money(a)])}
-  else if(T==='stock'){let tv=0;const rows=live('products').sort((a,b)=>a.name.localeCompare(b.name)).map(p=>{const s=stockOf(p.id),v=Math.max(s,0)*num(p.buyPrice);tv+=v;return [esc(p.name),`${r2(s)} ${esc(p.unit||'')}`,money(p.buyPrice),money(v)]});
-    h=tblc(['পণ্য','>স্টক','>ক্রয় মূল্য','>স্টক মূল্য'],rows,['মোট','','',money(tv)])}
+  else if(T==='stock'){let tv=0,ts=0;const sq=(RP.sq||'').trim().toLowerCase();const rows=live('products').filter(p=>!sq||p.name.toLowerCase().includes(sq)||(p.category||'').toLowerCase().includes(sq)||(p.barcode||'').toLowerCase().includes(sq)).sort((a,b)=>a.name.localeCompare(b.name)).map(p=>{const s=stockOf(p.id),v=Math.max(s,0)*num(p.buyPrice);tv+=v;ts+=s;return [esc(p.name),`${r2(s)} ${esc(p.unit||'')}`,money(p.buyPrice),money(v)]});
+    h=tblc(['পণ্য','>স্টক','>ক্রয় মূল্য','>স্টক মূল্য'],rows,['মোট '+rows.length+'টি',r2(ts),'',money(tv)])}
   else if(T==='due'){['customer','supplier'].forEach(ty=>{let t=0;const rows=live('parties').filter(p=>p.type===ty).map(p=>({p,d:dueOf(p)})).filter(x=>Math.abs(x.d)>.001).sort((a,b)=>b.d-a.d);rows.forEach(x=>t+=x.d);
     h+=`<h3>${ty==='customer'?'কাস্টমারের কাছে পাওনা':'সাপ্লায়ারকে দেনা'}</h3>`+tblc(['নাম','ফোন','>টাকা'],rows.map(x=>[esc(x.p.name),esc(x.p.phone||'-'),money(x.d)]),['মোট','',money(t)])})}
   else if(T==='expense'){const rows=live('money').filter(m=>m.kind==='expense'&&inR(m)).sort(byDateDesc);const by={};let t=0;rows.forEach(m=>{by[m.cat]=(by[m.cat]||0)+num(m.amount);t+=num(m.amount)});

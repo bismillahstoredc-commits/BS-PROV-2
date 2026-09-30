@@ -14,7 +14,7 @@ let CUR={r:'dash',a:null};
 function buildMenu(){
   $('#drawer').innerHTML=`<div class="dh"><img src="${LOGO_URI}" alt=""><div><b>${esc(ME.name)}</b><small>${ME.role==='owner'?'মালিক':'স্টাফ'}</small></div></div>`+
    MENU.map(m=>m.length===1?`<div class="ms">${m[0]}</div>`:(m[3]==='owner'&&!isOwner()?'':`<div class="mi" data-r="${m[0]}"><span>${m[1]}</span>${m[2]}</div>`)).join('')+
-   `<div class="mi" id="inst" data-r="install" style="display:none"><span>📲</span>অ্যাপ ইনস্টল করুন</div><div class="mi" data-r="logout"><span>🚪</span>লগআউট</div>`;
+   `<div class="mi" id="inst" data-r="install" style="display:none"><span>📲</span>অ্যাপ ইনস্টল করুন</div><div class="mi" data-r="logout"><span>🚪</span>লগআউট</div>`+`<div class="brandft"><span class="sgf">Bismillah Store</span><small>BS-PRO-V-2.0</small></div>`;
   if(window.refreshInstall)refreshInstall();
 }
 function go(r,a){
@@ -39,23 +39,24 @@ const DASH={hide:localStorage.getItem('dashHide')==='1'};
 SCR.dash=()=>{
   const X=idx(),t=today();let sale=0,pur=0,exp=0,n=0,gp=0;const days={};
   for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);days[d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())]=0}
-  S.docs.forEach(d=>{if(d.del)return;if(d.type==='sale'){if(d.date===t){sale+=num(d.total);n++;d.items.forEach(i=>gp+=num(i.qty)*(num(i.price)-num(i.cost)))}if(d.date in days)days[d.date]+=num(d.total)}if(d.type==='sale_return'&&d.date===t)d.items.forEach(i=>gp-=num(i.qty)*(num(i.price)-num(i.cost)));if(d.type==='purchase'&&d.date===t)pur+=num(d.total)});
+  S.docs.forEach(d=>{if(d.del)return;const ic=d.items?d.items.reduce((a,i)=>a+num(i.qty)*num(i.cost),0):0;if(d.type==='sale'){if(d.date===t){sale+=num(d.total);n++;gp+=num(d.total)-ic}if(d.date in days)days[d.date]+=num(d.total)}if(d.type==='sale_return'&&d.date===t)gp-=num(d.total)-ic;if(d.type==='free'&&d.date===t)gp-=ic;if(d.type==='purchase'&&d.date===t)pur+=num(d.total)});
   S.money.forEach(m=>{if(!m.del&&m.kind==='expense'&&m.date===t)exp+=num(m.amount)});
   let recv=0,pay=0;S.parties.forEach(p=>{if(p.del)return;const d=dueOf(p);if(p.type==='supplier')pay+=d;else recv+=d});
   let sv=0,low=0;S.products.forEach(p=>{if(p.del)return;const s=stockOf(p.id);sv+=Math.max(s,0)*num(p.buyPrice);if(num(p.low)>0&&s<=num(p.low))low++});
   const recent=live('docs').sort(byDateDesc).slice(0,6);const mx=Math.max(1,...Object.values(days));
   const H=v=>DASH.hide?'••••':v,net=r2(gp-exp);
-  view(`<div class="hero"><div class="hd"><span>মোট ব্যালেন্স</span><span class="eye" id="dh_eye">${DASH.hide?'🙈':'👁'}</span></div>
+  const OWN=isOwner();
+  view(`${OWN?`<div class="hero"><div class="hd"><span>মোট ব্যালেন্স</span><span class="eye" id="dh_eye">${DASH.hide?'🙈':'👁'}</span></div>
   <div class="amt">${H(money(X.cash+X.bank))}</div>
   <div class="sub"><span>ক্যাশ ${H(money(X.cash))}</span><span>ব্যাংক ${H(money(X.bank))}</span></div>
   <div class="inner"><div><small>আজকের বিক্রি</small><div>${H(money(sale))}</div></div><div class="r"><small>নিট মুনাফা (খরচ বাদে)</small><div>${H(money(net))}</div></div></div>
   <div class="detail">মোট মুনাফা ${H(money(gp))} − খরচ ${H(money(exp))}</div></div>
-  <div class="grid g4"><div class="stat g"><small>আজকের বিক্রয় (${n}টি)</small><div>${money(sale)}</div></div><div class="stat o"><small>আজকের ক্রয়</small><div>${money(pur)}</div></div><div class="stat r"><small>আজকের খরচ</small><div>${money(exp)}</div></div><div class="stat"><small>স্টক মূল্য</small><div>${money(sv)}</div></div></div>
-  <div class="grid g4" style="margin-top:10px"><div class="stat g"><small>ক্যাশ ব্যালেন্স</small><div>${money(X.cash)}</div></div><div class="stat"><small>ব্যাংক ব্যালেন্স</small><div>${money(X.bank)}</div></div><div class="stat g"><small>কাস্টমারের কাছে পাওনা</small><div>${money(recv)}</div></div><div class="stat r"><small>সাপ্লায়ারকে দেনা</small><div>${money(pay)}</div></div></div>
+  `:''}<div class="grid g4"><div class="stat g"><small>আজকের বিক্রয় (${n}টি)</small><div>${money(sale)}</div></div><div class="stat o"><small>আজকের ক্রয়</small><div>${money(pur)}</div></div><div class="stat r"><small>আজকের খরচ</small><div>${money(exp)}</div></div><div class="stat"><small>স্টক মূল্য</small><div>${money(sv)}</div></div></div>
+  <div class="grid g4" style="margin-top:10px">${OWN?`<div class="stat g"><small>ক্যাশ ব্যালেন্স</small><div>${money(X.cash)}</div></div><div class="stat"><small>ব্যাংক ব্যালেন্স</small><div>${money(X.bank)}</div></div>`:''}<div class="stat g"><small>কাস্টমারের কাছে পাওনা</small><div>${money(recv)}</div></div><div class="stat r"><small>সাপ্লায়ারকে দেনা</small><div>${money(pay)}</div></div></div>
   <div class="card" style="margin-top:12px"><h3>গত ৭ দিনের বিক্রয়</h3><div class="bars">${Object.entries(days).map(([d,v])=>`<div><i style="height:${Math.round(v/mx*80)}px"></i>${d.slice(8)}</div>`).join('')}</div></div>
   <div class="card"><h3>দ্রুত কাজ</h3><div class="row"><button class="btn" data-go="pos:sale">🛒 নতুন বিক্রয়</button><button class="btn o" data-go="pos:purchase">📥 নতুন ক্রয়</button><button class="btn o" data-go="expense">💸 খরচ</button><button class="btn o" data-go="due">💳 দেনা-পাওনা</button>${low?`<button class="btn d" data-go="products">⚠ লো-স্টক (${low})</button>`:''}</div></div>
   <div class="card"><h3>সাম্প্রতিক লেনদেন</h3>${tblc(['ইনভয়েস','তারিখ','পার্টি','>মোট'],recent.map(d=>[`<a href="#" data-view="${d.id}">${esc(d.no)}</a> <span class="bd bp">${TYPES[d.type].l}</span>`,d.date,partyName(d.partyId),money(d.total)]))}</div>`);
-  $('#dh_eye').onclick=()=>{DASH.hide=!DASH.hide;localStorage.setItem('dashHide',DASH.hide?'1':'0');SCR.dash()};
+  if($('#dh_eye'))$('#dh_eye').onclick=()=>{DASH.hide=!DASH.hide;localStorage.setItem('dashHide',DASH.hide?'1':'0');SCR.dash()};
 };
 
 /* ========== একক ও ক্যাটাগরি তালিকা (meta-তে kind:'unit'|'cat' হিসেবে সেভ হয়) ========== */

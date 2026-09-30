@@ -9,13 +9,35 @@ const pad=n=>String(n).padStart(2,'0');
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())};
 const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2,12);
 function toast(m,t){const e=document.createElement('div');e.className='toast '+(t||'');e.textContent=m;$('#tw').appendChild(e);setTimeout(()=>e.remove(),3000)}
+let MH=false,MSKIP=0,MDIRTY=false;
 function modal(title,html,mount,wide){
-  const w=$('#mw');w.innerHTML=`<div class="mo"><div class="mb2 ${wide?'w':''}"><h3>${esc(title)}</h3><div id="mbody">${html}</div></div></div>`;
-  $('.mo',w).addEventListener('mousedown',e=>{if(e.target.classList.contains('mo'))closeModal()});
+  const w=$('#mw');
+  w.innerHTML=`<div class="mo"><div class="mb2 ${wide?'w':''}"><div class="mh"><button class="mx" id="mback" type="button" aria-label="ফিরে যান">←</button><h3>${esc(title)}</h3><button class="mx" id="mclose" type="button" aria-label="বন্ধ করুন">✕</button></div><div id="mbody">${html}</div></div></div>`;
+  const mo=$('.mo',w);let down=null;
+  mo.addEventListener('pointerdown',e=>{down=e.target});
+  mo.addEventListener('click',e=>{if(e.target===mo&&down===mo)closeModal()});
+  $('#mback',w).onclick=()=>closeModal();$('#mclose',w).onclick=()=>closeModal();
+  if(!MH){try{history.pushState({m:1},'')}catch(e){}MH=true}
   if(mount)mount($('#mbody'));
 }
-const closeModal=()=>{$('#mw').innerHTML=''};
+function closeModal(fromPop){
+  if(!$('#mw .mo'))return;
+  $('#mw').innerHTML='';
+  if(MDIRTY){MDIRTY=false;setTimeout(()=>{if(!modalOpen()&&typeof CUR!=='undefined'&&CUR.r!=='pos')go(CUR.r,CUR.a)},0)}
+  if(MH&&fromPop!==true){MH=false;MSKIP=1;try{history.back()}catch(e){MSKIP=0}}else MH=false;
+}
 const modalOpen=()=>!!$('#mw .mo');
+addEventListener('popstate',()=>{if(MSKIP){MSKIP=0;return}if(modalOpen())closeModal(true)});
+addEventListener('keydown',e=>{if(e.key==='Escape'&&modalOpen())closeModal()});
+const BN99=['শূন্য','এক','দুই','তিন','চার','পাঁচ','ছয়','সাত','আট','নয়','দশ','এগারো','বারো','তেরো','চৌদ্দ','পনেরো','ষোল','সতেরো','আঠারো','উনিশ','বিশ','একুশ','বাইশ','তেইশ','চব্বিশ','পঁচিশ','ছাব্বিশ','সাতাশ','আটাশ','ঊনত্রিশ','ত্রিশ','একত্রিশ','বত্রিশ','তেত্রিশ','চৌত্রিশ','পঁয়ত্রিশ','ছত্রিশ','সাঁইত্রিশ','আটত্রিশ','ঊনচল্লিশ','চল্লিশ','একচল্লিশ','বিয়াল্লিশ','তেতাল্লিশ','চুয়াল্লিশ','পঁয়তাল্লিশ','ছেচল্লিশ','সাতচল্লিশ','আটচল্লিশ','ঊনপঞ্চাশ','পঞ্চাশ','একান্ন','বায়ান্ন','তিপ্পান্ন','চুয়ান্ন','পঞ্চান্ন','ছাপ্পান্ন','সাতান্ন','আটান্ন','ঊনষাট','ষাট','একষট্টি','বাষট্টি','তেষট্টি','চৌষট্টি','পঁয়ষট্টি','ছেষট্টি','সাতষট্টি','আটষট্টি','ঊনসত্তর','সত্তর','একাত্তর','বাহাত্তর','তিয়াত্তর','চুয়াত্তর','পঁচাত্তর','ছিয়াত্তর','সাতাত্তর','আটাত্তর','ঊনআশি','আশি','একাশি','বিরাশি','তিরাশি','চুরাশি','পঁচাশি','ছিয়াশি','সাতাশি','অষ্টাশি','ঊননব্বই','নব্বই','একানব্বই','বিরানব্বই','তিরানব্বই','চুরানব্বই','পঁচানব্বই','ছিয়ানব্বই','সাতানব্বই','আটানব্বই','নিরানব্বই'];
+function bnWords(n){ // পূর্ণসংখ্যা → বাংলা কথায় (কোটি/লক্ষ/হাজার/শত)
+  n=Math.floor(n);if(n<=0)return BN99[0];const out=[];
+  const cr=Math.floor(n/1e7);n%=1e7;const lk=Math.floor(n/1e5);n%=1e5;const hz=Math.floor(n/1e3);n%=1e3;const sh=Math.floor(n/100);const rest=n%100;
+  if(cr)out.push((cr>99?bnWords(cr):BN99[cr])+' কোটি');if(lk)out.push(BN99[lk]+' লক্ষ');if(hz)out.push(BN99[hz]+' হাজার');if(sh)out.push(BN99[sh]+' শত');if(rest)out.push(BN99[rest]);
+  return out.join(' ');
+}
+function takaWords(v){v=Math.abs(r2(v));const t=Math.floor(v),ps=Math.round((v-t)*100);
+  return bnWords(t)+' টাকা'+(ps?' '+bnWords(ps)+' পয়সা':'')+' মাত্র'}
 function printHTML(html){
   const f=document.createElement('iframe');f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0';
   document.body.appendChild(f);const d=f.contentDocument;d.open();d.write(html);d.close();
@@ -104,8 +126,34 @@ function idx(){
       net[d.partyId]=(net[d.partyId]||0)+k*due}});
   S.money.forEach(m=>{if(m.del)return;const e=cashEffect(0,m);X.cash+=e[0];X.bank+=e[1];
     if(m.partyId){net[m.partyId]=(net[m.partyId]||0)+(m.kind==='payment_in'?-num(m.amount):m.kind==='payment_out'?num(m.amount):0)}});
+  allocPayments(X);
   return IDXC=X;
 }
+/* পার্টির আদায়/পরিশোধ ইনভয়েসে ভাগ করা: নির্দিষ্ট ইনভয়েস বাছা থাকলে সেখানে, নইলে আগে শুরুর বকেয়া, তারপর সবচেয়ে পুরনো ইনভয়েস থেকে।
+   (পার্টির মোট বকেয়ার হিসাব আগের মতোই থাকে — এটি শুধু প্রতিটি ইনভয়েসের নিজস্ব বকেয়া দেখানোর জন্য) */
+function allocPayments(X){
+  const ex={},exl={},dueDocs={},pays={};
+  const cmp=(a,b)=>a.date<b.date?-1:a.date>b.date?1:num(a.createdAt)-num(b.createdAt);
+  S.docs.forEach(d=>{if(d.del||!d.partyId||(d.type!=='sale'&&d.type!=='purchase'))return;
+    if(num(d.total)-num(d.paid)<=0.001)return;
+    const k=d.partyId+'|'+(d.type==='sale'?'payment_in':'payment_out');(dueDocs[k]||(dueDocs[k]=[])).push(d)});
+  S.money.forEach(m=>{if(m.del||!m.partyId||(m.kind!=='payment_in'&&m.kind!=='payment_out'))return;
+    const k=m.partyId+'|'+m.kind;(pays[k]||(pays[k]=[])).push(m)});
+  Object.keys(pays).forEach(k=>{
+    const[pid,kind]=k.split('|'),p=S.parties.get(pid),docs=(dueDocs[k]||[]).sort(cmp);
+    const rem=new Map(docs.map(d=>[d.id,num(d.total)-num(d.paid)]));
+    let open=(p&&!p.del&&((kind==='payment_in'&&p.type!=='supplier')||(kind==='payment_out'&&p.type==='supplier')))?Math.max(0,num(p.opening)):0;
+    const give=(d,m,a)=>{ex[d.id]=(ex[d.id]||0)+a;(exl[d.id]||(exl[d.id]=[])).push({date:m.date,amount:a,method:m.method,note:m.note});rem.set(d.id,rem.get(d.id)-a)};
+    const list=pays[k].sort(cmp),left=new Map();
+    list.forEach(m=>{let a=num(m.amount);if(m.docId&&rem.has(m.docId)){const t=Math.min(a,Math.max(0,rem.get(m.docId)));if(t>0){give(S.docs.get(m.docId),m,t);a-=t}}left.set(m.id,a)});
+    list.forEach(m=>{let a=left.get(m.id);if(a<=0.001)return;
+      if(open>0){const t=Math.min(a,open);open-=t;a-=t}
+      for(const d of docs){if(a<=0.001)break;const r=rem.get(d.id);if(r<=0.001)continue;const t=Math.min(a,r);give(d,m,t);a-=t}});
+  });
+  X.ex=ex;X.exl=exl;
+}
+const docLater=d=>r2(idx().ex[d.id]||0);
+const docDue=d=>(d.type==='sale'||d.type==='purchase')?Math.max(0,r2(num(d.total)-num(d.paid)-docLater(d))):Math.max(0,r2(num(d.total)-num(d.paid)));
 const stockOf=id=>idx().stock[id]||0;
 function dueOf(p){const n=idx().net[p.id]||0,o=num(p.opening);return p.type==='supplier'?o-n:o+n}
 const isOwner=()=>ME&&ME.role==='owner';

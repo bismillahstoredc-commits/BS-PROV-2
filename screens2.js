@@ -53,22 +53,29 @@ SCR.parties=()=>{
     $$('[data-led]').forEach(b=>b.onclick=()=>ledger(S.parties.get(b.dataset.led)));};
   $('#q').oninput=paint;paint();
 };
-function payForm(p){
-  const cu=p.type!=='supplier';
-  modal((cu?'টাকা আদায় — ':'টাকা পরিশোধ — ')+p.name,`<p>বর্তমান ${cu?'পাওনা':'দেনা'}: <b>${money(dueOf(p))}</b></p>
-  <div class="f"><label>পরিমাণ</label><input id="a" type="number" value="${Math.max(0,r2(dueOf(p)))}"></div>
+function payForm(p,doc){
+  const cu=p.type!=='supplier',ty=cu?'sale':'purchase';
+  const dues=live('docs').filter(x=>x.partyId===p.id&&x.type===ty&&docDue(x)>0.001).sort(byDateDesc);
+  const def=()=>{const v=$('#iv').value;return v?docDue(S.docs.get(v)):Math.max(0,r2(dueOf(p)))};
+  modal((cu?'টাকা আদায় — ':'টাকা পরিশোধ — ')+p.name,`<p>বর্তমান মোট ${cu?'পাওনা':'দেনা'}: <b>${money(dueOf(p))}</b></p>
+  <div class="f"><label>কোন ইনভয়েসের বিপরীতে?</label><select id="iv"><option value="">স্বয়ংক্রিয় (আগে শুরুর/পুরনো বকেয়া)</option>${dues.map(x=>`<option value="${x.id}" ${doc&&doc.id===x.id?'selected':''}>${esc(x.no)} • ${x.date} • বকেয়া ${money(docDue(x))}</option>`).join('')}</select></div>
+  <div class="f"><label>পরিমাণ</label><input id="a" type="number"></div>
   <div class="grid g2"><div class="f"><label>মাধ্যম</label><select id="m"><option value="cash">ক্যাশ</option><option value="bank">ব্যাংক</option></select></div><div class="f"><label>তারিখ</label><input id="d" type="date" value="${today()}"></div></div>
-  <div class="f"><label>নোট</label><input id="n"></div><button class="btn" id="s">সেভ করুন</button>`,()=>{
+  <div class="f"><label>নোট</label><input id="n"></div><div class="row"><button class="btn" id="s">সেভ করুন</button><button class="btn o" id="pcx" type="button">← ফিরে যান</button></div>`,()=>{
+    $('#a').value=def();$('#iv').onchange=()=>{$('#a').value=def()};
+    $('#pcx').onclick=()=>{if(doc)viewDoc(doc.id);else closeModal()};
     $('#s').onclick=async()=>{const a=num($('#a').value);if(a<=0)return toast('সঠিক পরিমাণ দিন','e');
-      await save('money',{id:uid(),kind:cu?'payment_in':'payment_out',partyId:p.id,amount:a,method:$('#m').value,date:$('#d').value||today(),note:$('#n').value,createdAt:Date.now()});
-      closeModal();toast('সেভ হয়েছে','k');go(CUR.r,CUR.a)};
+      const iv=$('#iv').value;
+      await save('money',{id:uid(),kind:cu?'payment_in':'payment_out',partyId:p.id,docId:iv||undefined,amount:a,method:$('#m').value,date:$('#d').value||today(),note:$('#n').value,createdAt:Date.now()});
+      toast('সেভ হয়েছে','k');MDIRTY=true;
+      if(doc)viewDoc(doc.id);else closeModal()};
   });
 }
 function ledger(p){
   const ev=[];
   S.docs.forEach(d=>{if(d.del||d.partyId!==p.id||TYPES[d.type].order)return;const k={sale:1,sale_return:-1,purchase:-1,purchase_return:1}[d.type]||0;
     ev.push({date:d.date,at:num(d.createdAt),txt:`${TYPES[d.type].l} ${d.no} (মোট ${money(d.total)}, পরিশোধ ${money(d.paid)})`,net:k*(num(d.total)-num(d.paid))})});
-  S.money.forEach(m=>{if(m.del||m.partyId!==p.id)return;ev.push({date:m.date,at:num(m.createdAt),txt:(m.kind==='payment_in'?'আদায়':'পরিশোধ')+' '+money(m.amount)+(m.note?' — '+esc(m.note):''),net:m.kind==='payment_in'?-num(m.amount):num(m.amount)})});
+  S.money.forEach(m=>{if(m.del||m.partyId!==p.id)return;ev.push({date:m.date,at:num(m.createdAt),txt:(m.kind==='payment_in'?'আদায়':'পরিশোধ')+' '+money(m.amount)+(m.docId&&S.docs.get(m.docId)?' ('+esc(S.docs.get(m.docId).no)+' এর বিপরীতে)':'')+(m.note?' — '+esc(m.note):''),net:m.kind==='payment_in'?-num(m.amount):num(m.amount)})});
   ev.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.at-b.at);
   let run=num(p.opening);const sup=p.type==='supplier';
   const rows=[['শুরুর ব্যালেন্স','',money(run)]];
@@ -136,8 +143,8 @@ const inR=d=>(!RP.from||d.date>=RP.from)&&(!RP.to||d.date<=RP.to);
 function paintR(){
   const el=$('#rb'),docs=live('docs').filter(inR),T=RP.tab;let h='';
   const dl=t=>docs.filter(d=>d.type===t).sort((a,b)=>byDateDesc(b,a));
-  if(T==='sales'||T==='purchase'){const rows=dl(T);let a=0,b=0,c=0;rows.forEach(d=>{a+=num(d.total);b+=num(d.paid);c+=num(d.total)-num(d.paid)});
-    h=`<div class="grid g3"><div class="stat g"><small>মোট</small><div>${money(a)}</div></div><div class="stat"><small>পরিশোধ</small><div>${money(b)}</div></div><div class="stat r"><small>বকেয়া</small><div>${money(c)}</div></div></div><br>`+tblc(['ইনভয়েস','তারিখ','পার্টি','>মোট','>পরিশোধ','>বকেয়া'],rows.map(d=>[esc(d.no),d.date,partyName(d.partyId),money(d.total),money(d.paid),money(num(d.total)-num(d.paid))]),['মোট '+rows.length+'টি','','',money(a),money(b),money(c)])}
+  if(T==='sales'||T==='purchase'){const rows=dl(T);let a=0,b=0,c=0;rows.forEach(d=>{a+=num(d.total);b+=num(d.paid)+docLater(d);c+=docDue(d)});
+    h=`<div class="grid g3"><div class="stat g"><small>মোট</small><div>${money(a)}</div></div><div class="stat"><small>পরিশোধ</small><div>${money(b)}</div></div><div class="stat r"><small>বকেয়া</small><div>${money(c)}</div></div></div><br>`+tblc(['ইনভয়েস','তারিখ','পার্টি','>মোট','>পরিশোধ','>বকেয়া'],rows.map(d=>[esc(d.no),d.date,partyName(d.partyId),money(d.total),money(num(d.paid)+docLater(d)),money(docDue(d))]),['মোট '+rows.length+'টি','','',money(a),money(b),money(c)])}
   else if(T==='items'){const m={};dl('sale').forEach(d=>d.items.forEach(i=>{const x=m[i.pid]||(m[i.pid]={n:i.name,q:0,a:0,c:0});x.q+=num(i.qty);x.a+=num(i.qty)*num(i.price);x.c+=num(i.qty)*num(i.cost)}));
     const rows=Object.values(m).sort((a,b)=>b.a-a.a);let q=0,a=0,c=0;rows.forEach(x=>{q+=x.q;a+=x.a;c+=x.c});
     h=isOwner()?tblc(['পণ্য','>পরিমাণ','>বিক্রয়','>লাভ'],rows.map(x=>[esc(x.n),r2(x.q),money(x.a),money(x.a-x.c)]),['মোট',r2(q),money(a),money(a-c)]):tblc(['পণ্য','>পরিমাণ','>বিক্রয়'],rows.map(x=>[esc(x.n),r2(x.q),money(x.a)]),['মোট',r2(q),money(a)])}

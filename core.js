@@ -109,10 +109,19 @@ function cashEffect(kind,r){ // returns [cash,bank] delta
   const a=num(r.amount??r.paid),m=r.method==='bank'?1:0,v=[0,0];
   if(r.type){const t=TYPES[r.type];if(!t||!t.money)return v;if(r.payCash!==undefined){v[0]=t.cash*num(r.payCash);v[1]=t.cash*num(r.payBank);return v}v[m]=t.cash*num(r.paid);return v}
   switch(r.kind){
-    case 'payment_in':v[m]=a;break;case 'payment_out':v[m]=-a;break;case 'expense':v[m]=-a;break;
+    case 'drawing':v[m]=-a;break;case 'payment_in':v[m]=a;break;case 'payment_out':v[m]=-a;break;case 'expense':v[m]=-a;break;
     case 'cash_in':v[0]=a;break;case 'cash_out':v[0]=-a;break;case 'bank_in':v[1]=a;break;case 'bank_out':v[1]=-a;break;
     case 'c2b':v[0]=-a;v[1]=a;break;case 'b2c':v[0]=a;v[1]=-a;break}
   return v;
+}
+/* সব সময়ের নীট লাভ (বিক্রয় − বিক্রীত পণ্যের ক্রয়মূল্য − খরচ − ফ্রি আইটেম), লভ্যাংশ উত্তোলন ও অবশিষ্ট লাভ */
+function profitAll(){
+  let rev=0,cogs=0,free=0,ex=0,draw=0;
+  S.docs.forEach(d=>{if(d.del)return;
+    if(d.type==='sale'||d.type==='sale_return'){const k=d.type==='sale'?1:-1;rev+=k*num(d.total);(d.items||[]).forEach(i=>cogs+=k*num(i.qty)*num(i.cost))}
+    if(d.type==='free')(d.items||[]).forEach(i=>free+=num(i.qty)*num(i.cost))});
+  S.money.forEach(m=>{if(m.del)return;if(m.kind==='expense')ex+=num(m.amount);if(m.kind==='drawing')draw+=num(m.amount)});
+  const net=r2(rev-cogs-ex-free);return{net,draw:r2(draw),avail:r2(net-draw)};
 }
 function idx(){
   if(IDXC)return IDXC;

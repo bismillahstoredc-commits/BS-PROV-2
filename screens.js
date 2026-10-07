@@ -19,7 +19,7 @@ function buildMenu(){
 }
 function go(r,a){
   if(r==='install'){installApp();return}
-  if(r==='logout'){localStorage.removeItem('bspro_uid');ME=null;POS=null;location.reload();return}
+  if(r==='logout'){localStorage.removeItem('bspro_uid');localStorage.removeItem('bspro_posdraft');localStorage.removeItem('bspro_ui');ME=null;POS=null;location.reload();return}
   if(r.startsWith('pos:')){a=Object.assign({type:r.slice(4)},a||{});r='pos'}
   CUR={r,a};closeDrawer();
   $$('.mi').forEach(e=>e.classList.toggle('on',e.dataset.r===r||e.dataset.r==='pos:'+(a&&a.type)&&r==='pos'));

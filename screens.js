@@ -171,8 +171,10 @@ function paintPOS(){
   if(!matchMedia('(pointer:coarse)').matches)$('#pq').focus();
 }
 /* বারকোড স্ক্যান (ক্যামেরা / স্ক্যানার / টাইপ) → পণ্য কার্টে */
+let LSC='',LST=0;
 function scanCode(code,cam){
   if(!POS)return '';
+  {const now=Date.now();if(code===LSC&&now-LST<SCAN_GAP)return '⏳ একই বারকোড — '+Math.ceil(SCAN_GAP/1000)+' সেকেন্ড পর আবার স্ক্যান করুন';LSC=code;LST=now}
   const p=findByBarcode(code);
   if(p){addItem(p);beep(true);POS.q='';const q=$('#pq');if(q&&q.value){q.value='';paintGrid()}
     const it=POS.items.find(i=>i.pid===p.id);return `✓ ${p.name} — পরিমাণ ${r2(it?it.qty:1)}`}

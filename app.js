@@ -177,7 +177,7 @@ async function boot(){
 window.onSynced=()=>{
   ME=S.users.get(ME&&ME.id)||ME;if(ME&&(ME.del||!ME.active)){localStorage.removeItem('bspro_uid');location.reload();return}
   $('#tbz').textContent=biz().name||'';
-  if(!modalOpen()&&['dash','invoices','parties','products','lowstock','categories','units','due','expense','cash'].includes(CUR.r))go(CUR.r,CUR.a);
+  if(!modalOpen()&&['dash','invoices','parties','products','lowstock','photos','categories','units','due','expense','cash'].includes(CUR.r))go(CUR.r,CUR.a);
   toast('নতুন তথ্য সিঙ্ক হয়েছে','k');
 };
 $('#mb').onclick=()=>{$('#drawer').classList.toggle('open');$('#ov').classList.toggle('show')};

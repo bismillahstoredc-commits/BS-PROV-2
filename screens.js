@@ -5,7 +5,7 @@ const MENU=[
  ['বিক্রয়'],['pos:sale','🛒','নতুন বিক্রয়'],['pos:sale_order','📝','বিক্রয় অর্ডার'],['pos:sale_return','↩️','বিক্রয় ফেরত'],['pos:free','🎁','ফ্রি আইটেম'],
  ['ক্রয়'],['pos:purchase','📥','নতুন ক্রয়'],['pos:purchase_order','📝','ক্রয় অর্ডার'],['pos:purchase_return','↩️','ক্রয় ফেরত'],
  ['হিসাব'],['invoices','🧾','ইনভয়েস তালিকা'],['due','💳','দেনা-পাওনা'],['expense','💸','খরচ'],['cash','🏦','ক্যাশ ও ব্যাংক'],
- ['পণ্য'],['products','📦','পণ্যসমূহ'],['lowstock','⚠️','লো-স্টক পণ্য'],['categories','🗂️','ক্যাটাগরি'],['units','📏','একক'],['তালিকা'],['parties','👥','পার্টি (কাস্টমার/সাপ্লায়ার)'],
+ ['পণ্য'],['products','📦','পণ্যসমূহ'],['lowstock','⚠️','লো-স্টক পণ্য'],['photos','🖼','পণ্যের ছবি ইমপোর্ট'],['categories','🗂️','ক্যাটাগরি'],['units','📏','একক'],['তালিকা'],['parties','👥','পার্টি (কাস্টমার/সাপ্লায়ার)'],
  ['রিপোর্ট'],['reports','📊','রিপোর্ট'],
  ['ইউটিলিটি'],['reset','🔧','অ্যাকাউন্ট রিসেট','owner'],
 ['সেটিংস'],['settings','⚙️','সেটিংস','owner']
@@ -91,7 +91,9 @@ function productForm(p,cb,pre){
   <div class="grid g2"><div class="f"><label>পাইকারী বিক্রয় মূল্য</label><input id="fw" type="number" value="${p?.wsPrice??0}"></div><div class="f"><label>পাইকারী সর্বনিম্ন পরিমাণ (Min Qty)</label><input id="fwm" type="number" step="any" value="${p?.wsMin??0}"></div></div>
   <small style="color:var(--m);display:block;margin:-4px 0 8px">বিক্রয়ে পরিমাণ এই সংখ্যা বা তার বেশি হলে দাম নিজে থেকে পাইকারী হয়ে যাবে। দুটোই ০ থাকলে পাইকারী দর বন্ধ।</small>
   <div class="grid g2"><div class="f"><label>${p?'বর্তমান স্টক (সংশোধন করা যাবে)':'শুরুর স্টক'}</label><input id="fq" type="number" value="${p?r2(stockOf(p.id)):0}"></div><div class="f"><label>লো-স্টক এলার্ট</label><input id="fl" type="number" value="${p?.low??0}"></div></div>
+  ${photoField(p)}
   <div class="row"><button class="btn" id="fsv">সেভ করুন</button>${p&&isOwner()?'<button class="btn d" id="fdel">ডিলিট</button>':''}</div>`,()=>{
+    photoBind();
     $('#fscan').onclick=()=>openScanner(c=>{$('#fbc').value=c;beep(true)},false);
     $('#fgen').onclick=()=>{$('#fbc').value=genBarcode()};
     const plus=(kind,btn,sel)=>{$(btn).onclick=async()=>{const nm=prompt('নতুন '+LK[kind].l+' — নাম লিখুন:');if(!nm)return;const n=await addListName(kind,nm);if(n)$(sel).innerHTML=opt(kind,n)}};
@@ -106,9 +108,9 @@ function productForm(p,cb,pre){
       const want=num($('#fq').value);
       if(p)rec.openQty=num(rec.openQty)+(want-stockOf(p.id));else rec.openQty=want;
       Object.assign(rec,{name,barcode:bc,category:$('#fc').value.trim(),unit:$('#fu').value.trim()||'pcs',buyPrice:num($('#fb').value),sellPrice:num($('#fs').value),wsPrice:ws,wsMin:wm,low:num($('#fl').value)});
-      await save('products',rec);closeModal();toast('সেভ হয়েছে','k');cb&&cb(rec);
+      await save('products',rec);await photoApply(rec.id);closeModal();toast('সেভ হয়েছে','k');cb&&cb(rec);
     };
-    if(p&&isOwner())$('#fdel').onclick=async()=>{if(!confirm('ডিলিট করবেন?'))return;await remove('products',p);closeModal();cb&&cb(null)};
+    if(p&&isOwner())$('#fdel').onclick=async()=>{if(!confirm('ডিলিট করবেন?'))return;await remove('products',p);await imgDel(p.id);closeModal();cb&&cb(null)};
   });
 }
 function partyForm(p,defType,cb){
@@ -229,7 +231,7 @@ function paintGrid(){
   const T=TYPES[POS.type],q=POS.q.toLowerCase();
   const rows=live('products').filter(p=>posMatch(p,q)).sort((a,b)=>a.name.localeCompare(b.name)).slice(0,80);
   $('#pg').innerHTML=rows.length?rows.map(p=>{const s=stockOf(p.id);const w=wsOn(POS.type)&&num(p.wsPrice)>0&&num(p.wsMin)>0;
-    return `<div class="pt" data-pid="${p.id}"><b>${esc(p.name)}</b><span>${T.price?money(p[T.price]):'ফ্রি'}</span>${w?`<small style="color:var(--o)">পাইকারী ${money(p.wsPrice)} (${r2(p.wsMin)}+)</small>`:''}<small class="${s<=0?'low':''}">স্টক: ${r2(s)} ${esc(p.unit||'')}</small></div>`}).join(''):'<div class="empty">কোনো পণ্য নেই — "+ নতুন পণ্য" দিন</div>';
+    return `<div class="pt" data-pid="${p.id}">${imgTag(p.id,'pth')}<b>${esc(p.name)}</b><span>${T.price?money(p[T.price]):'ফ্রি'}</span>${w?`<small style="color:var(--o)">পাইকারী ${money(p.wsPrice)} (${r2(p.wsMin)}+)</small>`:''}<small class="${s<=0?'low':''}">স্টক: ${r2(s)} ${esc(p.unit||'')}</small></div>`}).join(''):'<div class="empty">কোনো পণ্য নেই — "+ নতুন পণ্য" দিন</div>';
   updateBadges();
   $('#pg').onclick=e=>{const t=e.target.closest('[data-pid]');if(t)addItem(S.products.get(t.dataset.pid))};
 }

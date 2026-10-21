@@ -95,7 +95,21 @@ async function save(store,rec){
 async function saveMany(store,recs){recs.forEach(r=>{r.updatedAt=Date.now();if(ME)r.by=ME.id;S[store].set(r.id,r);DIRTY[shardOf(store,r)]=++dirtyV});
   await IDB.putMany(store,recs);IDB.put('kv',DIRTY,'dirty');IDXC=null;syncSoon()}
 const remove=(store,rec)=>{rec.del=1;return save(store,rec)};
-function nextNo(prefix){DEV.counter++;IDB.put('kv',DEV,'device');const d=new Date();return `${prefix}-${String(d.getFullYear()).slice(2)}${pad(d.getMonth()+1)}${pad(d.getDate())}-${DEV.tag}${DEV.counter}`}
+function nextNo(prefix){
+  if(prefix==='S'||prefix==='P'){ // বিক্রয় S-00001, ক্রয় P-00001 ... ক্রমিক (মুছে ফেলা নম্বর আর ব্যবহার হয় না)
+    let mx=0;const re=new RegExp('^'+prefix+'-(\\d{5,})$');
+    S.docs.forEach(d=>{const m=re.exec(d.no||'');if(m)mx=Math.max(mx,+m[1])});
+    return prefix+'-'+String(mx+1).padStart(5,'0');
+  }
+  DEV.counter++;IDB.put('kv',DEV,'device');const d=new Date();return `${prefix}-${String(d.getFullYear()).slice(2)}${pad(d.getMonth()+1)}${pad(d.getDate())}-${DEV.tag}${DEV.counter}`}
+/* দুই ডিভাইসে অফলাইনে একই নম্বর হয়ে গেলে সিঙ্কের পর পরেরটির নম্বর নতুন করে দেওয়া হয় */
+async function fixDupNos(){
+  const seen=new Set(),dups=[];
+  [...S.docs.values()].filter(d=>!d.del&&/^(S|P)-\d{5,}$/.test(d.no||'')).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)||String(a.id).localeCompare(b.id)).forEach(d=>{if(seen.has(d.no))dups.push(d);else seen.add(d.no)});
+  for(const d of dups){const old=d.no;await save('docs',{...d,no:nextNo(old[0])});}
+  if(dups.length&&typeof toast==='function')toast(dups.length+'টি ইনভয়েসের নম্বর মিলে যাওয়ায় নতুন নম্বর দেওয়া হয়েছে','k');
+  return dups.length;
+}
 
 /* ========== document types & computed index ========== */
 const TYPES={
@@ -212,6 +226,7 @@ async function doSync(manual){
     for(const[shard,sha]of Object.entries(remote)){if(SYNC.sha[shard]!==sha)pulled+=await pullShard(shard,sha)}
     for(const shard of Object.keys(DIRTY))await pushShard(shard,remote);
     SYNC.last=Date.now();lastErr='';saveKV();
+    if(pulled){try{await fixDupNos()}catch(e){}}
     if(pulled&&window.onSynced)window.onSynced(pulled);
     if(manual)toast('সিঙ্ক সম্পন্ন'+(pulled?` (${pulled}টি নতুন তথ্য)`:''),'k');
   }catch(e){lastErr=e.message||String(e);saveKV();if(manual)toast(lastErr,'e')}

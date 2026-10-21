@@ -91,6 +91,11 @@ tr.tot td{font-weight:700;border-top:2px solid var(--p)}td.n,th.n{text-align:rig
 @media(max-width:600px){.mo{padding:0}.mb2,.mb2.w{max-width:none;height:100%;max-height:100%;border-radius:0}}
 @media(min-width:900px){.top .mb{display:none}}
 #splash{position:fixed;inset:0;z-index:9999;background:linear-gradient(160deg,var(--p),var(--pd));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:#fff;transition:opacity .35s}#splash.out{opacity:0;pointer-events:none}#splash img{width:84px;height:84px;border-radius:20px;background:#fff;padding:6px;object-fit:contain}#splash .sp{width:34px;height:34px;border:4px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spn .8s linear infinite}@keyframes spn{to{transform:rotate(360deg)}}#splash b{font-size:16px}
+/* মোবাইল ট্যাপ: দ্রুত সাড়া, বড় ট্যাপ এলাকা, স্টিকি-হোভার বন্ধ */
+html,body,button,.btn,.mi,.pt,a,select,input,label,summary,.cr{touch-action:manipulation}
+.btn:active,.mi:active,.pt:active{filter:brightness(.9)}
+@media (hover:none){.btn:hover{background:var(--p)}.btn.o:hover{background:#fff}.btn.d:hover{background:var(--r)}.btn.gr:hover{background:var(--g)}.mi:hover{background:transparent}.mi.on:hover{background:var(--pl)}}
+@media (pointer:coarse){.btn{min-height:42px}.btn.s{min-height:38px;padding:8px 14px}.mi{padding:13px 16px}input:not([type=checkbox]):not([type=radio]),select{min-height:42px}.mx{min-width:42px;min-height:42px}}
 </style>
 </head>
 <body>
@@ -119,6 +124,8 @@ tr.tot td{font-weight:700;border-top:2px solid var(--p)}td.n,th.n{text-align:rig
 <script src="photos.js"></script>
 <script src="freeitems.js"></script>
 <script src="namefont.js"></script>
+<script src="keys.js"></script>
+<script src="update.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

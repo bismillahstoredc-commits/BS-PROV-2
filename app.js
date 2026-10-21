@@ -153,8 +153,8 @@ async function boot(){
     window.__booted=true;
     const so=syncOn()&&navigator.onLine,t0=Date.now();
     const tx=$('#splashtx');if(tx)tx.textContent=so?'ডাটা সিঙ্ক হচ্ছে…':'ডাটা লোড হচ্ছে…';
-    if(so){try{await Promise.race([doSync(),new Promise(r=>setTimeout(r,6000))])}catch(e){}}
-    const wait=900-(Date.now()-t0);if(wait>0)await new Promise(r=>setTimeout(r,wait));
+    if(so){try{await Promise.race([doSync(),new Promise(r=>setTimeout(r,3000))])}catch(e){}}
+    const wait=700-(Date.now()-t0);if(wait>0)await new Promise(r=>setTimeout(r,wait));
   }
   const g0=new URLSearchParams(location.search).get('go');
   const dr=posDraftLoad(),ui=uiLoad();

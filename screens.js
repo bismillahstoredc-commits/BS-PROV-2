@@ -76,7 +76,9 @@ async function addListName(kind,name){
   if(ex&&!has){await save('meta',{id:kind+'_'+uid(),kind,name:ex});return ex}
   await save('meta',{id:kind+'_'+uid(),kind,name});return name;
 }
-const findByBarcode=c=>{c=String(c||'').trim();return c?live('products').find(p=>(p.barcode||'').trim()===c):null};
+const findByBarcode=c=>{c=String(c||'').trim();return c?live('products').find(p=>(p.barcode||'').trim()===c||(p.cartonBarcode||'').trim()===c):null};
+/* কার্টুন বারকোড কিনা (প্রতি কার্টুনে পরিমাণ সহ) */
+const isCartonCode=(p,c)=>!!p&&!!(p.cartonBarcode||'').trim()&&(p.cartonBarcode||'').trim()===String(c||'').trim()&&num(p.cartonQty)>0&&(p.barcode||'').trim()!==String(c||'').trim();
 
 /* ========== product form (shared) ========== */
 function productForm(p,cb,pre){
@@ -85,6 +87,9 @@ function productForm(p,cb,pre){
   const ul=listNames('unit'),defU=p?.unit||(ul.includes('pcs')?'pcs':ul[0]||'pcs');
   modal(p?'পণ্য এডিট':'নতুন পণ্য',`<div class="f"><label>নাম *</label><input id="fn" value="${esc(p?.name||'')}"></div>
   <div class="f"><label>বারকোড (স্ক্যানার দিয়ে স্ক্যান করুন, ক্যামেরা ব্যবহার করুন বা টাইপ করুন)</label><div class="row" style="flex-wrap:nowrap"><input id="fbc" value="${esc(p?.barcode??pre?.barcode??'')}" placeholder="বারকোড নম্বর"><button class="btn o s" id="fscan" type="button">📷</button><button class="btn o s" id="fgen" type="button">অটো</button></div></div>
+  <div class="f"><label>কার্টুন বারকোড (ঐচ্ছিক — পাইকারী বিক্রয়ের জন্য, একই পণ্যের দ্বিতীয় বারকোড)</label><div class="row" style="flex-wrap:nowrap"><input id="fcb" value="${esc(p?.cartonBarcode??'')}" placeholder="কার্টুনের বারকোড নম্বর"><button class="btn o s" id="fcscan" type="button">📷</button><button class="btn o s" id="fcgen" type="button">অটো</button></div></div>
+  <div class="f"><label>প্রতি কার্টুনে কত পিছ/একক</label><input id="fcq" type="number" step="any" value="${p?.cartonQty||''}" placeholder="যেমন ১২"></div>
+  <small style="color:var(--m);display:block;margin:-4px 0 8px">কার্টুনের বারকোড স্ক্যান করলে এই সংখ্যক পিছ একসাথে কার্টে যোগ হবে (বিক্রয়ে পাইকারী দামে)। পিছের বারকোড স্ক্যান করলে ১টি করে যোগ হবে।</small>
   <div class="grid g2"><div class="f"><label>ক্যাটাগরি</label><div class="row" style="flex-wrap:nowrap"><select id="fc">${opt('cat',p?.category||'')}</select><button class="btn o s" id="fcn" type="button">+</button></div></div>
   <div class="f"><label>একক</label><div class="row" style="flex-wrap:nowrap"><select id="fu">${opt('unit',defU)}</select><button class="btn o s" id="fun" type="button">+</button></div></div></div>
   <div class="grid g2"><div class="f"><label>ক্রয় মূল্য</label><input id="fb" type="number" value="${p?.buyPrice??0}"></div><div class="f"><label>খুচরা বিক্রয় মূল্য</label><input id="fs" type="number" value="${p?.sellPrice??0}"></div></div>
@@ -96,18 +101,26 @@ function productForm(p,cb,pre){
     photoBind();
     $('#fscan').onclick=()=>openScanner(c=>{$('#fbc').value=c;beep(true)},false);
     $('#fgen').onclick=()=>{$('#fbc').value=genBarcode()};
+    $('#fcscan').onclick=()=>openScanner(c=>{$('#fcb').value=c;beep(true)},false);
+    $('#fcgen').onclick=()=>{let c;do{c=genBarcode()}while(c===$('#fbc').value.trim());$('#fcb').value=c};
     const plus=(kind,btn,sel)=>{$(btn).onclick=async()=>{const nm=prompt('নতুন '+LK[kind].l+' — নাম লিখুন:');if(!nm)return;const n=await addListName(kind,nm);if(n)$(sel).innerHTML=opt(kind,n)}};
     plus('cat','#fcn','#fc');plus('unit','#fun','#fu');
     $('#fsv').onclick=async()=>{
       const name=$('#fn').value.trim();if(!name)return toast('নাম দিন','e');
       const bc=$('#fbc').value.trim();
-      if(bc){const dup=live('products').find(x=>x.id!==(p&&p.id)&&(x.barcode||'').trim()===bc);if(dup)return toast('এই বারকোড আগে থেকেই আছে: '+dup.name,'e')}
+      const cbc=$('#fcb').value.trim(),cq=num($('#fcq').value);
+      if(bc){const dup=live('products').find(x=>x.id!==(p&&p.id)&&((x.barcode||'').trim()===bc||(x.cartonBarcode||'').trim()===bc));if(dup)return toast('এই বারকোড আগে থেকেই আছে: '+dup.name,'e')}
+      if(cbc){
+        if(cbc===bc)return toast('কার্টুন বারকোড ও পিছের বারকোড আলাদা হতে হবে','e');
+        const dup=live('products').find(x=>x.id!==(p&&p.id)&&((x.barcode||'').trim()===cbc||(x.cartonBarcode||'').trim()===cbc));if(dup)return toast('কার্টুন বারকোডটি আগে থেকেই আছে: '+dup.name,'e');
+        if(!(cq>0))return toast('কার্টুন বারকোড দিলে প্রতি কার্টুনে কত পিছ তা দিন','e')}
+      else if(cq>0)return toast('প্রতি কার্টুনের পরিমাণ দিয়েছেন, কিন্তু কার্টুন বারকোড দেননি','e');
       const ws=num($('#fw').value),wm=num($('#fwm').value);
       if((ws>0)!==(wm>0))return toast('পাইকারী মূল্য ও সর্বনিম্ন পরিমাণ দুটোই দিন (অথবা দুটোই ০ রাখুন)','e');
       const rec=p||{id:uid(),openQty:0,createdAt:Date.now()};
       const want=num($('#fq').value);
       if(p)rec.openQty=num(rec.openQty)+(want-stockOf(p.id));else rec.openQty=want;
-      Object.assign(rec,{name,barcode:bc,category:$('#fc').value.trim(),unit:$('#fu').value.trim()||'pcs',buyPrice:num($('#fb').value),sellPrice:num($('#fs').value),wsPrice:ws,wsMin:wm,low:num($('#fl').value)});
+      Object.assign(rec,{name,barcode:bc,cartonBarcode:cbc,cartonQty:cbc?cq:0,category:$('#fc').value.trim(),unit:$('#fu').value.trim()||'pcs',buyPrice:num($('#fb').value),sellPrice:num($('#fs').value),wsPrice:ws,wsMin:wm,low:num($('#fl').value)});
       await save('products',rec);await photoApply(rec.id);closeModal();toast('সেভ হয়েছে','k');cb&&cb(rec);
     };
     if(p&&isOwner())$('#fdel').onclick=async()=>{if(!confirm('ডিলিট করবেন?'))return;await remove('products',p);await imgDel(p.id);closeModal();cb&&cb(null)};
@@ -131,7 +144,7 @@ function partyForm(p,defType,cb){
 /* ========== POS: sale / purchase / order / return / free ========== */
 let POS=null;
 const wsOn=t=>t==='sale'||t==='sale_order';
-const posMatch=(p,q)=>!q||p.name.toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q)||(p.barcode||'').toLowerCase().includes(q);
+const posMatch=(p,q)=>!q||p.name.toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q)||(p.barcode||'').toLowerCase().includes(q)||(p.cartonBarcode||'').toLowerCase().includes(q);
 function posStart(type,pre){
   POS={type,editId:pre?.id||null,fromOrder:pre?.fromOrder||null,date:pre?.date||today(),partyId:pre?.partyId||'',
    items:pre?.items?pre.items.map(i=>({pid:i.pid,name:i.name,qty:i.qty,price:i.price,cost:i.cost,manual:true})):[],
@@ -178,8 +191,8 @@ function scanCode(code,cam){
   if(!POS)return '';
   {const now=Date.now();if(code===LSC&&now-LST<SCAN_GAP)return '⏳ একই বারকোড — '+Math.ceil(SCAN_GAP/1000)+' সেকেন্ড পর আবার স্ক্যান করুন';LSC=code;LST=now}
   const p=findByBarcode(code);
-  if(p){addItem(p);beep(true);POS.q='';const q=$('#pq');if(q&&q.value){q.value='';paintGrid()}
-    const it=POS.items.find(i=>i.pid===p.id);return `✓ ${p.name} — পরিমাণ ${r2(it?it.qty:1)}`}
+  if(p){const ct=isCartonCode(p,code);addItem(p,ct?num(p.cartonQty):1,ct);beep(true);POS.q='';const q=$('#pq');if(q&&q.value){q.value='';paintGrid()}
+    const it=POS.items.find(i=>i.pid===p.id);return `✓ ${p.name}${ct?' — 📦 কার্টুন (+'+r2(p.cartonQty)+')':''} — পরিমাণ ${r2(it?it.qty:1)}`}
   beep(false);
   if(cam)return '✗ এই বারকোডের পণ্য নেই: '+code;
   if(confirm(`বারকোড ${code} দিয়ে কোনো পণ্য নেই। নতুন পণ্য যোগ করবেন?`))productForm(null,np=>{if(np){addItem(np);paintGrid()}},{barcode:code});
@@ -239,13 +252,13 @@ function paintGrid(){
 function autoPrice(it){ // পরিমাণ অনুযায়ী খুচরা/পাইকারী দাম (হাতে দাম বদলালে আর বদলায় না)
   const T=TYPES[POS.type];if(!T.price||it.manual)return;
   const p=S.products.get(it.pid);if(!p)return;
-  const ws=wsOn(POS.type)&&num(p.wsPrice)>0&&num(p.wsMin)>0&&num(it.qty)>=num(p.wsMin);
+  const ws=wsOn(POS.type)&&num(p.wsPrice)>0&&((it.cart&&num(it.qty)>=num(p.cartonQty))||(num(p.wsMin)>0&&num(it.qty)>=num(p.wsMin)));
   it.price=ws?num(p.wsPrice):num(p[T.price]);it.ws=ws;
 }
-function addItem(p,qty){
+function addItem(p,qty,carton){
   const T=TYPES[POS.type];const ex=POS.items.find(i=>i.pid===p.id);
-  if(ex){ex.qty=num(ex.qty)+(qty||1);autoPrice(ex)}
-  else{const it={pid:p.id,name:p.name,qty:qty||1,price:T.price?num(p[T.price]):0,cost:num(p.buyPrice)};autoPrice(it);POS.items.push(it)}
+  if(ex){ex.qty=num(ex.qty)+(qty||1);if(carton)ex.cart=true;autoPrice(ex)}
+  else{const it={pid:p.id,name:p.name,qty:qty||1,price:T.price?num(p[T.price]):0,cost:num(p.buyPrice)};if(carton)it.cart=true;autoPrice(it);POS.items.push(it)}
   paintCart();
 }
 function paintCart(){

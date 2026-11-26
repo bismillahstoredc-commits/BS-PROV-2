@@ -70,7 +70,7 @@ SCR.photos=()=>{
   $('#phmany').onchange=async e=>{
     const files=[...e.target.files];e.target.value='';if(!files.length)return;
     const rep=$('#phrep').checked,pr=$('#phprog');
-    const byBc=new Map(),byNm=new Map();ps.forEach(p=>{if(p.barcode)byBc.set(normNm(p.barcode),p);byNm.set(normNm(p.name),p)});
+    const byBc=new Map(),byNm=new Map();ps.forEach(p=>{if(p.barcode)byBc.set(normNm(p.barcode),p);if(p.cartonBarcode)byBc.set(normNm(p.cartonBarcode),p);byNm.set(normNm(p.name),p)});
     let ok=0,skip=0;const miss=[],fail=[];let batch=[];
     const flush=async()=>{if(batch.length){await saveMany('imgs',batch);batch=[]}};
     for(let i=0;i<files.length;i++){

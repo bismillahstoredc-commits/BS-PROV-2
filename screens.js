@@ -147,7 +147,7 @@ const wsOn=t=>t==='sale'||t==='sale_order';
 const posMatch=(p,q)=>!q||p.name.toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q)||(p.barcode||'').toLowerCase().includes(q)||(p.cartonBarcode||'').toLowerCase().includes(q);
 function posStart(type,pre){
   POS={type,editId:pre?.id||null,fromOrder:pre?.fromOrder||null,date:pre?.date||today(),partyId:pre?.partyId||'',
-   items:pre?.items?pre.items.map(i=>({pid:i.pid,name:i.name,qty:i.qty,price:i.price,cost:i.cost,manual:true})):[],
+   items:pre?.items?pre.items.map(i=>({pid:i.pid,name:i.name,qty:i.qty,price:i.price,cost:i.cost,cq:i.cq,manual:true})):[],
    dm:pre?.discMode||'amt',dv:pre?(pre.discMode==='pct'?num(pre.discVal):num(pre.disc)):0,
    pay:'cash',pa:'',pc:0,pb:0,note:pre?.note||'',q:'',free:pre?.freeItems?pre.freeItems.map(x=>({pid:x.pid,name:x.name,qty:x.qty})):[]};
   if(pre&&pre.id){ // এডিটের সময় আগের পেমেন্ট ফিরিয়ে আনা
@@ -257,8 +257,8 @@ function autoPrice(it){ // পরিমাণ অনুযায়ী খুচ
 }
 function addItem(p,qty,carton){
   const T=TYPES[POS.type];const ex=POS.items.find(i=>i.pid===p.id);
-  if(ex){ex.qty=num(ex.qty)+(qty||1);if(carton)ex.cart=true;autoPrice(ex)}
-  else{const it={pid:p.id,name:p.name,qty:qty||1,price:T.price?num(p[T.price]):0,cost:num(p.buyPrice)};if(carton)it.cart=true;autoPrice(it);POS.items.push(it)}
+  if(ex){ex.qty=num(ex.qty)+(qty||1);if(carton){ex.cart=true;ex.cq=num(p.cartonQty)}autoPrice(ex)}
+  else{const it={pid:p.id,name:p.name,qty:qty||1,price:T.price?num(p[T.price]):0,cost:num(p.buyPrice)};if(carton){it.cart=true;it.cq=num(p.cartonQty)}autoPrice(it);POS.items.push(it)}
   paintCart();
 }
 function paintCart(){
@@ -330,7 +330,7 @@ async function posSave(print){
   const doc=POS.editId?{...S.docs.get(POS.editId)}:{id:uid(),no:nextNo(T.pre),createdAt:Date.now()};
   const oldCost={};(doc.items||[]).forEach(i=>oldCost[i.pid]=i.cost);
   Object.assign(doc,{type:POS.type,date:POS.date||today(),partyId:POS.partyId||'',
-    items:POS.items.map(i=>({pid:i.pid,name:i.name,qty:num(i.qty),price:num(i.price),cost:T.price==='buyPrice'?num(i.price):(oldCost[i.pid]??num(S.products.get(i.pid)?.buyPrice??i.cost))})),
+    items:POS.items.map(i=>({pid:i.pid,name:i.name,...(num(i.cq)>0?{cq:num(i.cq)}:{}),qty:num(i.qty),price:num(i.price),cost:T.price==='buyPrice'?num(i.price):(oldCost[i.pid]??num(S.products.get(i.pid)?.buyPrice??i.cost))})),
     sub:o.sub,disc:o.disc,discMode:POS.dm,discVal:num(POS.dv),total:T.price?o.total:0,paid,
     payCash:T.money?o.pc:0,payBank:T.money?o.pb:0,method:(T.money&&o.pb>0&&o.pc<=0)?'bank':'cash',note:POS.note});
   if(frList)doc.freeItems=frList;else if(POS.type==='sale')doc.freeItems=[];
